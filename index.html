@@ -135,8 +135,21 @@
   /* Split view (PC) */
   .viewport.split { background: var(--line); }
   .viewport.split iframe.pane-left,
-  .viewport.split iframe.pane-right { top: var(--pane-head-h); width: calc(50% - 1px); height: calc(100% - var(--pane-head-h)); }
-  .viewport.split iframe.pane-right { left: calc(50% + 1px); }
+  .viewport.split iframe.pane-right { top: var(--pane-head-h); height: calc(100% - var(--pane-head-h)); }
+  .viewport.split iframe.pane-left { width: calc(var(--split, 50%) - 3px); }
+  .viewport.split iframe.pane-right { left: calc(var(--split, 50%) + 3px); width: calc(100% - var(--split, 50%) - 3px); }
+  .splitter {
+    position: absolute; top: 0; bottom: 0; left: calc(var(--split, 50%) - 3px); width: 6px; z-index: 4;
+    background: var(--line); cursor: col-resize; touch-action: none;
+  }
+  .splitter::after {
+    content: ""; position: absolute; top: 50%; left: 2px; width: 2px; height: 32px; margin-top: -16px;
+    border-radius: 1px; background: var(--muted); opacity: .6;
+  }
+  .splitter:hover, .splitter:focus-visible, .viewport.resizing .splitter { background: var(--accent); outline: none; }
+  .viewport:not(.split) .splitter { display: none; }
+  .viewport.resizing { cursor: col-resize; user-select: none; }
+  .viewport.resizing iframe { pointer-events: none; }
   .pane-head {
     position: absolute; top: 0; height: var(--pane-head-h); z-index: 2;
     display: flex; align-items: center; gap: 6px; padding: 0 6px 0 12px;
@@ -144,8 +157,8 @@
   }
   .pane-head span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .pane-head .icon-btn { height: 26px; min-width: 26px; padding: 0 6px; font-size: 12px; font-weight: 400; }
-  #paneHeadL { left: 0; width: calc(50% - 1px); }
-  #paneHeadR { left: calc(50% + 1px); right: 0; }
+  #paneHeadL { left: 0; width: calc(var(--split, 50%) - 3px); }
+  #paneHeadR { left: calc(var(--split, 50%) + 3px); right: 0; }
   .viewport:not(.split) .pane-head { display: none; }
 
   /* Home / blocked panels */
@@ -237,7 +250,7 @@
 
   @media (max-width: 1023px) {
     .pc-only { display: none !important; }
-    .pane-head { display: none; }
+    .pane-head, .splitter { display: none; }
     .viewport.split iframe.pane-left { top: 0; width: 100%; height: 100%; }
     .viewport.split iframe.pane-right { display: none; }
   }
@@ -312,6 +325,8 @@
     <section class="page" id="blocked" hidden></section>
     <div class="viewport" id="viewport" hidden>
       <div class="loading" id="loading" hidden></div>
+      <div class="splitter" id="splitter" role="separator" aria-orientation="vertical" aria-label="좌우 너비 조절"
+           aria-valuemin="20" aria-valuemax="80" tabindex="0" title="드래그해서 너비 조절 · 더블클릭하면 반반"></div>
       <div class="pane-head" id="paneHeadL">
         <span id="paneNameL"></span>
         <button class="icon-btn" id="swapBtn" title="좌우 바꾸기">⇄</button>
@@ -739,6 +754,39 @@
     f.src = f.src;
     updateLoading();
   });
+  // 나란히 보기 너비 조절: 드래그 · 더블클릭은 반반 · ←/→ (비율 저장)
+  let splitPct = 50;
+  function setSplit(pct) {
+    splitPct = Math.min(80, Math.max(20, pct));
+    $("viewport").style.setProperty("--split", splitPct + "%");
+    $("splitter").setAttribute("aria-valuenow", Math.round(splitPct));
+  }
+  setSplit(store.get("split", 50));
+  $("splitter").addEventListener("pointerdown", e => {
+    e.preventDefault();
+    $("splitter").setPointerCapture(e.pointerId);
+    $("viewport").classList.add("resizing");
+  });
+  $("splitter").addEventListener("pointermove", e => {
+    if (!$("splitter").hasPointerCapture(e.pointerId)) return;
+    const r = $("viewport").getBoundingClientRect();
+    setSplit((e.clientX - r.left) / r.width * 100);
+  });
+  const endResize = () => {
+    if (!$("viewport").classList.contains("resizing")) return;
+    $("viewport").classList.remove("resizing");
+    store.set("split", splitPct);
+  };
+  $("splitter").addEventListener("pointerup", endResize);
+  $("splitter").addEventListener("lostpointercapture", endResize);
+  $("splitter").addEventListener("dblclick", () => { setSplit(50); store.set("split", splitPct); });
+  $("splitter").addEventListener("keydown", e => {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    e.preventDefault();
+    setSplit(splitPct + (e.key === "ArrowLeft" ? -2 : 2));
+    store.set("split", splitPct);
+  });
+
   window.addEventListener("hashchange", render);
   document.addEventListener("keydown", e => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); openPalette("go"); }
