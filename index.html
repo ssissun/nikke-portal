@@ -1,0 +1,718 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>NIKKE Hub</title>
+<script>
+  // 사이드바 접힘 상태를 첫 렌더 전에 적용 (깜빡임 방지)
+  try { if (localStorage.getItem("nikke-hub:nav-collapsed") === "true") document.documentElement.classList.add("nav-collapsed"); } catch {}
+</script>
+<style>
+  :root {
+    --bg: #0f1117;
+    --panel: #171a23;
+    --panel-2: #1f2330;
+    --line: #2a2f3d;
+    --text: #e6e8ee;
+    --muted: #8b91a3;
+    --accent: #ff4f6d;
+    --warn: #f0b429;
+    --star: #ffc94d;
+    --sidebar-w: 264px;
+    --topbar-h: 52px;
+    --pane-head-h: 36px;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+    font-size: 14px;
+    overflow: hidden;
+  }
+  a { color: inherit; }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+  svg { display: block; }
+
+  .app { display: grid; grid-template-columns: var(--sidebar-w) 1fr; height: 100dvh; transition: grid-template-columns .2s ease; }
+  .nav-collapsed .app { grid-template-columns: 0 1fr; }
+  .nav-collapsed .sidebar { visibility: hidden; border-right-width: 0; }
+
+  /* Sidebar */
+  .sidebar {
+    background: var(--panel);
+    border-right: 1px solid var(--line);
+    display: flex; flex-direction: column;
+    min-height: 0; min-width: 0; overflow: hidden;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 8px;
+    height: var(--topbar-h); padding: 0 16px;
+    border-bottom: 1px solid var(--line);
+    font-weight: 700; letter-spacing: .02em;
+    text-decoration: none;
+  }
+  .brand .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
+  .nav {
+    overflow-y: auto; padding: 8px 8px 24px; flex: 1;
+    scrollbar-width: thin; scrollbar-color: var(--line) transparent;
+  }
+  .nav::-webkit-scrollbar { width: 6px; }
+  .nav::-webkit-scrollbar-track { background: transparent; }
+  .nav::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+  .nav::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+  .nav h3 {
+    margin: 16px 8px 6px; font-size: 11px; font-weight: 600;
+    color: var(--muted); text-transform: uppercase; letter-spacing: .06em;
+  }
+  .nav a {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 8px 10px; border-radius: 8px; text-decoration: none;
+    color: var(--text);
+  }
+  .nav a:hover { background: var(--panel-2); }
+  .nav a.active { background: var(--accent); color: #fff; }
+  .nav .quick { border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+  .nav .quick:empty { display: none; }
+  .badge {
+    font-size: 10px; padding: 1px 6px; border-radius: 999px;
+    border: 1px solid currentColor; color: var(--warn); white-space: nowrap;
+  }
+  .nav a.active .badge { color: #fff; }
+
+  /* Main */
+  .main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .topbar {
+    display: flex; align-items: center; gap: 6px;
+    height: var(--topbar-h); padding: 0 12px;
+    background: var(--panel); border-bottom: 1px solid var(--line);
+  }
+  .topbar .title { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .topbar .title small { color: var(--muted); font-weight: 400; margin-left: 6px; }
+  .icon-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    height: 34px; min-width: 34px; padding: 0 10px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--panel-2);
+    text-decoration: none; white-space: nowrap;
+  }
+  .icon-btn:hover { border-color: var(--muted); }
+  .icon-btn.on { border-color: var(--accent); color: var(--accent); }
+  .icon-btn.star.on { border-color: var(--star); color: var(--star); }
+  .icon-btn kbd { font: 11px/1 inherit; color: var(--muted); }
+
+  .viewport { position: relative; flex: 1; min-height: 0; background: #fff; }
+  .viewport iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; background: #fff; }
+  .loading {
+    position: absolute; top: 0; left: 0; right: 0; height: 3px; overflow: hidden; z-index: 3;
+  }
+  .loading::before {
+    content: ""; position: absolute; inset: 0; width: 40%;
+    background: var(--accent); animation: slide 1s ease-in-out infinite;
+  }
+  @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+
+  /* Split view (PC) */
+  .viewport.split { background: var(--line); }
+  .viewport.split iframe.pane-left,
+  .viewport.split iframe.pane-right { top: var(--pane-head-h); width: calc(50% - 1px); height: calc(100% - var(--pane-head-h)); }
+  .viewport.split iframe.pane-right { left: calc(50% + 1px); }
+  .pane-head {
+    position: absolute; top: 0; height: var(--pane-head-h); z-index: 2;
+    display: flex; align-items: center; gap: 6px; padding: 0 6px 0 12px;
+    background: var(--panel-2); font-size: 13px; font-weight: 600;
+  }
+  .pane-head span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pane-head .icon-btn { height: 26px; min-width: 26px; padding: 0 6px; font-size: 12px; font-weight: 400; }
+  #paneHeadL { left: 0; width: calc(50% - 1px); }
+  #paneHeadR { left: calc(50% + 1px); right: 0; }
+  .viewport:not(.split) .pane-head { display: none; }
+
+  /* Home / blocked panels */
+  .page { flex: 1; overflow-y: auto; padding: 24px; background: var(--bg); }
+  .page h1 { margin: 0 0 4px; font-size: 22px; }
+  .page .lead { margin: 0 0 24px; color: var(--muted); }
+  .page .lead kbd { padding: 1px 6px; border: 1px solid var(--line); border-radius: 4px; font: 12px inherit; }
+  .group { margin-bottom: 24px; }
+  .group h2 { margin: 0 0 10px; font-size: 13px; color: var(--muted); font-weight: 600; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+  .card {
+    display: block; padding: 14px; border-radius: 10px; text-decoration: none;
+    background: var(--panel); border: 1px solid var(--line);
+  }
+  .card:hover { border-color: var(--accent); }
+  .card b { display: flex; justify-content: space-between; gap: 6px; margin-bottom: 4px; }
+  .card span.desc { color: var(--muted); font-size: 12px; }
+  .notice {
+    max-width: 480px; margin: 12vh auto 0; text-align: center;
+  }
+  .notice p { color: var(--muted); line-height: 1.6; }
+  .notice .icon-btn { height: 42px; padding: 0 18px; background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  /* Mobile favorites bar */
+  .tabbar { display: none; }
+
+  /* Search palette */
+  .palette {
+    position: fixed; inset: 0; z-index: 30;
+    background: rgba(0,0,0,.55);
+    display: flex; justify-content: center; align-items: flex-start;
+    padding: 12vh 16px 16px;
+  }
+  .palette-box {
+    width: min(560px, 100%); max-height: 70vh; display: flex; flex-direction: column;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,.5);
+  }
+  .palette-box .mode { padding: 10px 16px 0; font-size: 12px; color: var(--accent); }
+  .palette input {
+    width: 100%; padding: 14px 16px; border: 0; border-bottom: 1px solid var(--line);
+    background: transparent; color: var(--text); font: inherit; font-size: 16px; outline: none;
+  }
+  .palette ul { list-style: none; margin: 0; padding: 6px; overflow-y: auto; }
+  .palette li {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 12px; border-radius: 8px; cursor: pointer;
+  }
+  .palette li small { color: var(--muted); margin-left: auto; white-space: nowrap; }
+  .palette li .fav { color: var(--star); }
+  .palette li[aria-selected="true"] { background: var(--panel-2); outline: 1px solid var(--accent); }
+  .palette .empty { padding: 16px; color: var(--muted); text-align: center; }
+
+  /* 내 사이트 */
+  .nav h3.custom-head { display: flex; align-items: center; justify-content: space-between; }
+  .add-btn { font-size: 11px; color: var(--accent); padding: 2px 6px; border-radius: 6px; text-transform: none; letter-spacing: 0; }
+  .add-btn:hover { background: var(--panel-2); }
+  .custom-row { display: flex; align-items: center; gap: 2px; }
+  .custom-row a { flex: 1; min-width: 0; }
+  .del { width: 26px; height: 26px; border-radius: 6px; color: var(--muted); font-size: 12px; opacity: 0; }
+  .custom-row:hover .del, .del:focus-visible { opacity: 1; }
+  .del:hover { background: var(--panel-2); color: var(--accent); }
+  @media (hover: none) { .del { opacity: .7; } }
+  .add-card { text-align: left; font: inherit; color: var(--muted); border-style: dashed; cursor: pointer; }
+  .add-card b { color: var(--text); }
+
+  .dialog {
+    width: min(400px, calc(100% - 32px)); padding: 20px;
+    border: 1px solid var(--line); border-radius: 12px;
+    background: var(--panel); color: var(--text);
+  }
+  .dialog::backdrop { background: rgba(0,0,0,.55); }
+  .dialog h2 { margin: 0 0 16px; font-size: 16px; }
+  .dialog label { display: block; margin-bottom: 12px; font-size: 13px; color: var(--muted); }
+  .dialog input:not([type="checkbox"]) {
+    display: block; width: 100%; margin-top: 6px; padding: 10px 12px;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text);
+    font: inherit; font-size: 16px; outline: none;
+  }
+  .dialog input:focus { border-color: var(--accent); }
+  .dialog .check { display: flex; align-items: center; gap: 8px; color: var(--text); }
+  .dialog .check small { color: var(--muted); }
+  .dialog .note, .dialog .error { margin: 0 0 14px; font-size: 12px; color: var(--muted); }
+  .dialog .error { color: var(--accent); }
+  .dialog .actions { display: flex; justify-content: flex-end; gap: 8px; }
+  .icon-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  .scrim { display: none; }
+
+  @media (max-width: 1023px) {
+    .pc-only { display: none !important; }
+    .pane-head { display: none; }
+    .viewport.split iframe.pane-left { top: 0; width: 100%; height: 100%; }
+    .viewport.split iframe.pane-right { display: none; }
+  }
+
+  /* Mobile */
+  @media (max-width: 768px) {
+    .app, .nav-collapsed .app { grid-template-columns: 1fr; }
+    .nav-collapsed .sidebar { visibility: visible; border-right-width: 1px; }
+    .sidebar {
+      position: fixed; z-index: 20; top: 0; bottom: 0; left: 0;
+      width: min(82vw, 300px);
+      transform: translateX(-100%); transition: transform .2s ease;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    .app.nav-open .sidebar { transform: none; }
+    .scrim {
+      display: block; position: fixed; inset: 0; z-index: 10;
+      background: rgba(0,0,0,.5); opacity: 0; pointer-events: none; transition: opacity .2s;
+    }
+    .app.nav-open .scrim { opacity: 1; pointer-events: auto; }
+    .topbar { padding-top: env(safe-area-inset-top); height: calc(var(--topbar-h) + env(safe-area-inset-top)); gap: 4px; padding-left: 8px; padding-right: 8px; }
+    .topbar .title small, .topbar .label, .icon-btn kbd { display: none; }
+    .page { padding: 16px; }
+    .cards { grid-template-columns: 1fr 1fr; }
+    .palette { padding-top: 8px; }
+    .tabbar {
+      display: flex; gap: 6px; overflow-x: auto;
+      padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+      background: var(--panel); border-top: 1px solid var(--line);
+    }
+    .tabbar a {
+      flex: 0 0 auto; max-width: 42vw; padding: 8px 12px; border-radius: 999px;
+      background: var(--panel-2); text-decoration: none; font-size: 13px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .tabbar a.active { background: var(--accent); color: #fff; }
+  }
+  @media (max-width: 380px) {
+    .cards { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <aside class="sidebar" id="sidebar">
+    <a class="brand" href="#"><span class="dot"></span>NIKKE Hub</a>
+    <nav class="nav" id="nav">
+      <div class="quick" id="navQuick"></div>
+      <div id="navCats"></div>
+    </nav>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+
+  <main class="main">
+    <header class="topbar">
+      <button class="icon-btn menu-btn" id="menuBtn" title="사이드바 열기/닫기" aria-label="사이드바 열기/닫기">☰</button>
+      <div class="title" id="title">홈</div>
+      <button class="icon-btn" id="searchBtn" title="사이트 검색 (Ctrl+K)" aria-label="사이트 검색">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+        <kbd>Ctrl K</kbd>
+      </button>
+      <button class="icon-btn star" id="favBtn" title="즐겨찾기" aria-pressed="false" hidden>☆</button>
+      <button class="icon-btn pc-only" id="splitBtn" title="나란히 보기" aria-label="나란히 보기" hidden>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/></svg>
+      </button>
+      <button class="icon-btn" id="reloadBtn" title="새로고침" hidden>⟳</button>
+      <a class="icon-btn" id="openBtn" target="_blank" rel="noopener" hidden>↗<span class="label">새 탭</span></a>
+    </header>
+
+    <section class="page" id="home"></section>
+    <section class="page" id="blocked" hidden></section>
+    <div class="viewport" id="viewport" hidden>
+      <div class="loading" id="loading" hidden></div>
+      <div class="pane-head" id="paneHeadL">
+        <span id="paneNameL"></span>
+        <button class="icon-btn" id="swapBtn" title="좌우 바꾸기">⇄</button>
+      </div>
+      <div class="pane-head" id="paneHeadR">
+        <span id="paneNameR"></span>
+        <a class="icon-btn" id="paneOpenR" target="_blank" rel="noopener" title="새 탭">↗</a>
+        <button class="icon-btn" id="paneCloseR" title="닫기">✕</button>
+      </div>
+    </div>
+    <nav class="tabbar" id="tabbar" hidden></nav>
+  </main>
+</div>
+
+<dialog class="dialog" id="addDialog" aria-labelledby="addTitle">
+  <form id="addForm">
+    <h2 id="addTitle">내 사이트 추가</h2>
+    <label>이름<input id="siteName" required maxlength="40" autocomplete="off" placeholder="예: 내 계산기"></label>
+    <label>주소<input id="siteUrl" required inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://example.com"></label>
+    <label class="check"><input id="siteNewTab" type="checkbox">새 탭으로 열기 <small>(이 화면 안에 안 뜨는 사이트)</small></label>
+    <p class="error" id="addError" hidden>주소 형식이 올바르지 않습니다.</p>
+    <p class="note">이 브라우저에만 저장됩니다.</p>
+    <div class="actions">
+      <button type="button" class="icon-btn" id="addCancel">취소</button>
+      <button type="submit" class="icon-btn primary">추가</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="palette" id="palette" hidden>
+  <div class="palette-box" role="dialog" aria-modal="true" aria-label="사이트 검색">
+    <div class="mode" id="paletteMode" hidden>오른쪽에 띄울 사이트 선택</div>
+    <input id="paletteInput" placeholder="사이트 이름·카테고리 검색" autocomplete="off" spellcheck="false">
+    <ul id="paletteList" role="listbox"></ul>
+  </div>
+</div>
+
+<script>
+  // embed:false → 사이트가 iframe 임베딩을 차단하므로 새 탭으로만 연다
+  // src → iframe용 주소 (openUrl과 다를 때)
+  const CATEGORIES = [
+    { name: "공식", items: [
+      { id: "shiftypad", name: "시프티패드", desc: "블라블라링크 · 내 계정 게임 데이터 (로그인 필요)", url: "https://www.blablalink.com/shiftyspad/home" },
+    ]},
+    { name: "딜량계산기", items: [
+      { id: "dildoro", name: "딜도로", url: "https://dildoro.com/", embed: false },
+    ]},
+    { name: "기록소", items: [
+      { id: "solo-archive", name: "솔레금서고", url: "https://soloraidhistory.vercel.app/" },
+    ]},
+    { name: "유레", items: [
+      { id: "ur-calc", name: "유레 효율계산기", url: "https://msprivaty.com/" },
+      { id: "ur-sheet", name: "유레 결산 시트", url: "https://arca.live/b/nikketgv/161405505" },
+      { id: "ur-autosync", name: "결산 시트 자동 입력 툴", url: "https://ssissun.github.io/nikke-raid-autosync-spa/" },
+    ]},
+    { name: "오버로드", items: [
+      { id: "module-opt", name: "모듈작 최적화 계산기", url: "https://syuen.love/" },
+    ]},
+    { name: "소장품", items: [
+      { id: "doll-opt", name: "소장품 최적화 계산기", url: "https://syuen.love/doll/" },
+    ]},
+    { name: "아레나", items: [
+      { id: "deck-simple", name: "버충 계산기 (간단)", url: "https://nikke-deck.com/" },
+      { id: "deck-advanced", name: "버충 계산기 (심화)", url: "https://nikke.top/" },
+      { id: "arena-penalty", name: "아레나 페널티 계산기", url: "https://nikke-arena.netlify.app/" },
+    ]},
+    { name: "니케DB", items: [
+      { id: "nikke-db", name: "니케DB 비주얼라이저", desc: "일러스트 · Live2D 스탠딩 · SD", url: "https://nikke-db.pages.dev/visualiser" },
+    ]},
+    { name: "스토리 보는 순서", items: [
+      { id: "story-ssissun", name: "스토리 순서 (storyline)", url: "https://ssissun.github.io/nikke-storyline" },
+      { id: "story-github", name: "스토리 순서 (nikke-story)", url: "https://nikke-story.github.io/" },
+      { id: "story-dc", name: "스토리 순서 (디시 뉴비 정리)", url: "https://gall.dcinside.com/mgallery/board/view/?id=gov&no=4053990" },
+    ]},
+    { name: "육성", items: [
+      { id: "growth", name: "니케 육성 정리", url: "https://arca.live/b/nikketgv/125575794" },
+    ]},
+    { name: "패키지", items: [
+      { id: "package", name: "패키지 효율표 시트",
+        url: "https://docs.google.com/spreadsheets/d/1qUSwYnpDtWAD_aq_4L6dC6py2vM19WtLed2AGKSdIPk/edit?gid=2059216737#gid=2059216737",
+        src: "https://docs.google.com/spreadsheets/d/1qUSwYnpDtWAD_aq_4L6dC6py2vM19WtLed2AGKSdIPk/htmlview?gid=2059216737" },
+    ]},
+  ];
+
+  // 내 사이트: 방문자가 직접 추가한 주소 (이 브라우저에만 저장)
+  const CUSTOM_CATEGORY = "내 사이트";
+  function loadCustom() {
+    try {
+      const list = JSON.parse(localStorage.getItem("nikke-hub:custom") || "[]");
+      return Array.isArray(list)
+        ? list.filter(i => i && typeof i.id === "string" && typeof i.name === "string" && /^https?:\/\//.test(i.url))
+        : [];
+    } catch { return []; }
+  }
+  let customSites = loadCustom();
+
+  let ALL, ITEMS;
+  function buildCatalog() {
+    const cats = [...CATEGORIES, { name: CUSTOM_CATEGORY, items: customSites }];
+    ALL = cats.flatMap(c => c.items.map(i => ({ ...i, category: c.name })));
+    ITEMS = Object.fromEntries(ALL.map(i => [i.id, i]));
+  }
+  buildCatalog();
+
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const $ = id => document.getElementById(id);
+  const embeddable = item => item.embed !== false;
+  const frames = {}; // 한 번 연 사이트는 iframe을 유지해 탭 전환 시 입력 상태를 보존
+
+  // 즐겨찾기·최근·마지막 화면은 이 브라우저에만 저장 (저장소가 막혀 있어도 동작)
+  const store = {
+    get(key, fallback) {
+      try { const v = localStorage.getItem("nikke-hub:" + key); return v === null ? fallback : JSON.parse(v); }
+      catch { return fallback; }
+    },
+    set(key, value) {
+      try { localStorage.setItem("nikke-hub:" + key, JSON.stringify(value)); } catch {}
+    },
+  };
+  let favorites = store.get("favorites", []).filter(id => ITEMS[id]);
+  let recent = store.get("recent", []).filter(id => ITEMS[id]);
+  const RECENT_MAX = 5;
+
+  function addRecent(id) {
+    recent = [id, ...recent.filter(r => r !== id)].slice(0, RECENT_MAX);
+    store.set("recent", recent);
+  }
+  function toggleFavorite(id) {
+    favorites = favorites.includes(id) ? favorites.filter(f => f !== id) : [...favorites, id];
+    store.set("favorites", favorites);
+  }
+
+  // ---- 렌더링 조각 ----
+  const badge = item => embeddable(item) ? "" : '<span class="badge">새 탭</span>';
+  const linkAttrs = item => embeddable(item)
+    ? `href="#${item.id}" data-id="${item.id}"`
+    : `href="${esc(item.url)}" target="_blank" rel="noopener" data-id="${item.id}"`;
+  const navLink = item => `<a ${linkAttrs(item)}>${esc(item.name)}${badge(item)}</a>`;
+  const card = item => `<a class="card" ${linkAttrs(item)}><b>${esc(item.name)}${badge(item)}</b><span class="desc">${esc(item.desc || new URL(item.url).hostname)}</span></a>`;
+
+  function renderNav() {
+    $("navCats").innerHTML =
+      CATEGORIES.map(c => `<h3>${c.name}</h3>` + c.items.map(navLink).join("")).join("") +
+      `<h3 class="custom-head">${CUSTOM_CATEGORY}<button class="add-btn" data-add-site>+ 추가</button></h3>` +
+      customSites.map(i => `<div class="custom-row">${navLink(i)}<button class="del" data-del="${i.id}" title="삭제" aria-label="${esc(i.name)} 삭제">✕</button></div>`).join("");
+  }
+  renderNav();
+
+  const homeGroup = (title, items) => `<div class="group"><h2>${title}</h2><div class="cards">${items.map(card).join("")}</div></div>`;
+  function renderHome() {
+    const favItems = favorites.map(id => ITEMS[id]);
+    $("home").innerHTML = `
+      <h1>NIKKE Hub</h1>
+      <p class="lead">니케 유용한 사이트 모음 — 대부분은 이 화면 안에서 바로 열립니다. <kbd>Ctrl</kbd>+<kbd>K</kbd>로 검색.</p>
+      ${favItems.length ? homeGroup("★ 즐겨찾기", favItems) : ""}
+      ${CATEGORIES.map(c => homeGroup(c.name, c.items)).join("")}
+      <div class="group"><h2>${CUSTOM_CATEGORY}</h2><div class="cards">
+        ${customSites.map(card).join("")}
+        <button class="card add-card" data-add-site><b>+ 사이트 추가</b><span class="desc">주소를 넣으면 이 브라우저의 목록에 추가됩니다</span></button>
+      </div></div>`;
+  }
+
+  // ---- 내 사이트 추가·삭제 ----
+  function saveCustom() {
+    store.set("custom", customSites);
+    buildCatalog();
+    favorites = favorites.filter(id => ITEMS[id]);
+    recent = recent.filter(id => ITEMS[id]);
+    store.set("favorites", favorites);
+    store.set("recent", recent);
+    renderNav();
+  }
+  function addCustomSite(name, rawUrl, newTab) {
+    let parsed;
+    try { parsed = new URL(/^https?:\/\//i.test(rawUrl) ? rawUrl : "https://" + rawUrl); } catch { return null; }
+    if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(parsed.hostname)) return null;
+    const url = parsed.href;
+    const item = { id: "my-" + Date.now().toString(36), name, url };
+    if (newTab) item.embed = false;
+    customSites = [...customSites, item];
+    saveCustom();
+    return item;
+  }
+  function removeCustomSite(id) {
+    customSites = customSites.filter(i => i.id !== id);
+    if (frames[id]) { frames[id].remove(); delete frames[id]; }
+    saveCustom();
+    if (current === id || currentRight === id) location.hash = current === id ? "" : current;
+    else render();
+  }
+  function openAddDialog() {
+    closeNav();
+    $("addForm").reset();
+    $("addError").hidden = true;
+    $("addDialog").showModal();
+  }
+  $("addForm").addEventListener("submit", e => {
+    e.preventDefault();
+    const item = addCustomSite($("siteName").value.trim(), $("siteUrl").value.trim(), $("siteNewTab").checked);
+    if (!item) { $("addError").hidden = false; return; }
+    $("addDialog").close();
+    if (embeddable(item)) go(item.id);
+    else render();
+  });
+  $("addCancel").addEventListener("click", () => $("addDialog").close());
+
+  function renderQuick() {
+    const favItems = favorites.map(id => ITEMS[id]);
+    const recentItems = recent.filter(id => id !== current && !favorites.includes(id)).slice(0, 4).map(id => ITEMS[id]);
+    $("navQuick").innerHTML =
+      (favItems.length ? `<h3>★ 즐겨찾기</h3>${favItems.map(navLink).join("")}` : "") +
+      (recentItems.length ? `<h3>최근</h3>${recentItems.map(navLink).join("")}` : "");
+    $("tabbar").innerHTML = favItems.map(i => `<a ${linkAttrs(i)}>${i.name}</a>`).join("");
+    $("tabbar").hidden = !favItems.length;
+    document.querySelectorAll(".nav a, .tabbar a").forEach(a => a.classList.toggle("active", a.dataset.id === current));
+  }
+
+  // ---- iframe ----
+  function getFrame(item) {
+    if (!frames[item.id]) {
+      const f = document.createElement("iframe");
+      f.allow = "fullscreen; clipboard-read; clipboard-write";
+      f.referrerPolicy = "strict-origin-when-cross-origin";
+      f.dataset.loading = "1";
+      f.addEventListener("load", () => { delete f.dataset.loading; updateLoading(); });
+      f.src = item.src || item.url;
+      $("viewport").appendChild(f);
+      frames[item.id] = f;
+    }
+    return frames[item.id];
+  }
+  function updateLoading() {
+    $("loading").hidden = !Object.values(frames).some(f => !f.hidden && f.dataset.loading);
+  }
+
+  // ---- 라우팅: #왼쪽id 또는 #왼쪽id|오른쪽id ----
+  let current = null, currentRight = null;
+
+  function parseHash() {
+    const [a, b] = decodeURIComponent(location.hash.slice(1)).split("|");
+    const left = ITEMS[a] || null;
+    let right = ITEMS[b] || null;
+    if (!left || !embeddable(left) || !right || !embeddable(right) || right === left) right = null;
+    return { left, right };
+  }
+
+  function go(id) {
+    location.hash = currentRight && id !== currentRight ? `${id}|${currentRight}` : id;
+  }
+
+  function render() {
+    const { left, right } = parseHash();
+    current = left ? left.id : null;
+    currentRight = right ? right.id : null;
+    closeNav();
+
+    $("home").hidden = !!left;
+    $("blocked").hidden = !(left && !embeddable(left));
+    $("viewport").hidden = !(left && embeddable(left));
+    $("favBtn").hidden = $("openBtn").hidden = !left;
+    $("splitBtn").hidden = $("reloadBtn").hidden = !(left && embeddable(left));
+    Object.values(frames).forEach(f => { f.hidden = true; f.classList.remove("pane-left", "pane-right"); });
+    $("viewport").classList.toggle("split", !!right);
+    $("splitBtn").classList.toggle("on", !!right);
+
+    if (!left) {
+      store.set("last", null);
+      $("title").textContent = "홈";
+      document.title = "NIKKE Hub";
+      renderHome();
+      renderQuick();
+      updateLoading();
+      return;
+    }
+
+    store.set("last", location.hash.slice(1));
+    addRecent(left.id);
+    renderQuick();
+
+    const isFav = favorites.includes(left.id);
+    $("favBtn").textContent = isFav ? "★" : "☆";
+    $("favBtn").classList.toggle("on", isFav);
+    $("favBtn").setAttribute("aria-pressed", String(isFav));
+    $("title").innerHTML = `${esc(left.name)}<small>${left.category}</small>`;
+    document.title = `${left.name} · NIKKE Hub`;
+    $("openBtn").href = left.url;
+
+    if (!embeddable(left)) {
+      $("blocked").innerHTML = `
+        <div class="notice">
+          <h1>${esc(left.name)}</h1>
+          <p>${left.category === CUSTOM_CATEGORY
+            ? "새 탭으로 열도록 설정한 사이트입니다."
+            : "이 사이트는 다른 사이트 안에 표시되는 것을 막고 있어서 새 탭에서만 열 수 있습니다."}</p>
+          <a class="icon-btn" href="${esc(left.url)}" target="_blank" rel="noopener">↗ 새 탭에서 열기</a>
+        </div>`;
+      return;
+    }
+
+    const lf = getFrame(left);
+    lf.hidden = false;
+    lf.classList.add("pane-left");
+    if (right) {
+      const rf = getFrame(right);
+      rf.hidden = false;
+      rf.classList.add("pane-right");
+      $("paneNameL").textContent = left.name;
+      $("paneNameR").textContent = right.name;
+      $("paneOpenR").href = right.url;
+    }
+    updateLoading();
+  }
+
+  // ---- 검색 팔레트 (Ctrl+K) ----
+  let paletteMode = "go", paletteResults = [], paletteSel = 0;
+
+  function openPalette(mode) {
+    paletteMode = mode;
+    $("paletteMode").hidden = mode !== "split";
+    $("paletteInput").value = "";
+    $("palette").hidden = false;
+    renderPalette();
+    $("paletteInput").focus();
+  }
+  function closePalette() { $("palette").hidden = true; }
+
+  function renderPalette() {
+    const terms = $("paletteInput").value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const pool = paletteMode === "split" ? ALL.filter(i => embeddable(i) && i.id !== current) : ALL;
+    const ordered = [...pool.filter(i => favorites.includes(i.id)), ...pool.filter(i => !favorites.includes(i.id))];
+    paletteResults = ordered.filter(i => {
+      const hay = `${i.name} ${i.category} ${i.desc || ""} ${new URL(i.url).hostname}`.toLowerCase();
+      return terms.every(t => hay.includes(t));
+    });
+    paletteSel = Math.min(paletteSel, Math.max(paletteResults.length - 1, 0));
+    $("paletteList").innerHTML = paletteResults.length
+      ? paletteResults.map((i, n) => `
+          <li role="option" data-n="${n}" aria-selected="${n === paletteSel}">
+            ${favorites.includes(i.id) ? '<span class="fav">★</span>' : ""}${esc(i.name)}${badge(i)}<small>${i.category}</small>
+          </li>`).join("")
+      : '<li class="empty">검색 결과가 없습니다</li>';
+    const sel = $("paletteList").querySelector('[aria-selected="true"]');
+    if (sel) sel.scrollIntoView({ block: "nearest" });
+  }
+
+  function choosePalette(n) {
+    const item = paletteResults[n];
+    if (!item) return;
+    closePalette();
+    if (paletteMode === "split") { location.hash = `${current}|${item.id}`; return; }
+    if (!embeddable(item)) { addRecent(item.id); renderQuick(); window.open(item.url, "_blank", "noopener"); return; }
+    go(item.id);
+  }
+
+  $("paletteInput").addEventListener("input", () => { paletteSel = 0; renderPalette(); });
+  $("paletteInput").addEventListener("keydown", e => {
+    if (e.key === "ArrowDown") { paletteSel = Math.min(paletteSel + 1, paletteResults.length - 1); renderPalette(); e.preventDefault(); }
+    else if (e.key === "ArrowUp") { paletteSel = Math.max(paletteSel - 1, 0); renderPalette(); e.preventDefault(); }
+    else if (e.key === "Enter") { choosePalette(paletteSel); e.preventDefault(); }
+  });
+  $("paletteList").addEventListener("click", e => {
+    const li = e.target.closest("li[data-n]");
+    if (li) choosePalette(Number(li.dataset.n));
+  });
+  $("palette").addEventListener("click", e => { if (e.target === $("palette")) closePalette(); });
+
+  // ---- 이벤트 ----
+  function openNav() { $("app").classList.add("nav-open"); }
+  function closeNav() { $("app").classList.remove("nav-open"); }
+
+  // 사이트 링크 클릭: 새 탭 사이트는 최근 목록만 갱신, 나머지는 나란히 보기 상태를 유지하며 이동
+  document.addEventListener("click", e => {
+    if (e.target.closest("[data-add-site]")) { openAddDialog(); return; }
+    const del = e.target.closest("[data-del]");
+    if (del) {
+      const item = ITEMS[del.dataset.del];
+      if (item && confirm(`'${item.name}'을(를) 내 사이트에서 삭제할까요?`)) removeCustomSite(item.id);
+      return;
+    }
+    const a = e.target.closest("a[data-id]");
+    if (!a || e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return;
+    const item = ITEMS[a.dataset.id];
+    closeNav();
+    if (!embeddable(item)) { addRecent(item.id); renderQuick(); return; }
+    e.preventDefault();
+    go(item.id);
+  });
+
+  // 모바일은 서랍으로 열고, PC는 사이드바를 접었다 폈다 (상태 저장)
+  $("menuBtn").addEventListener("click", () => {
+    if (matchMedia("(max-width: 768px)").matches) { openNav(); return; }
+    const collapsed = document.documentElement.classList.toggle("nav-collapsed");
+    store.set("nav-collapsed", collapsed);
+  });
+  $("scrim").addEventListener("click", closeNav);
+  $("searchBtn").addEventListener("click", () => openPalette("go"));
+  $("favBtn").addEventListener("click", () => { toggleFavorite(current); render(); });
+  $("splitBtn").addEventListener("click", () => {
+    if (currentRight) location.hash = current;
+    else openPalette("split");
+  });
+  $("swapBtn").addEventListener("click", () => { location.hash = `${currentRight}|${current}`; });
+  $("paneCloseR").addEventListener("click", () => { location.hash = current; });
+  $("reloadBtn").addEventListener("click", () => {
+    const f = frames[current];
+    if (!f) return;
+    f.dataset.loading = "1";
+    f.src = f.src;
+    updateLoading();
+  });
+  window.addEventListener("hashchange", render);
+  document.addEventListener("keydown", e => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); openPalette("go"); }
+    else if (e.key === "Escape") { closePalette(); closeNav(); }
+  });
+
+  // 주소에 사이트가 지정되지 않았으면 마지막에 보던 화면으로 시작
+  const last = store.get("last", null);
+  if (!location.hash && last) history.replaceState(null, "", "#" + last);
+  render();
+</script>
+</body>
+</html>
