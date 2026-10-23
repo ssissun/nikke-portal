@@ -302,10 +302,17 @@
   .nav h3.custom-head { display: flex; align-items: center; justify-content: space-between; }
   .add-btn { font-size: 11px; color: var(--accent); padding: 2px 6px; border-radius: 6px; text-transform: none; letter-spacing: 0; }
   .add-btn:hover { background: var(--panel-2); }
-  .custom-row { display: flex; align-items: center; gap: 2px; }
-  .custom-row a { flex: 1; min-width: 0; }
+  .nav-row { display: flex; align-items: center; gap: 2px; }
+  .nav-row a { flex: 1; min-width: 0; }
+  /* 메뉴 줄의 즐겨찾기 별: 즐겨찾기면 늘 보이고, 아니면 줄에 마우스를 올렸을 때만 */
+  .fav-toggle { display: grid; place-items: center; flex-shrink: 0; width: 26px; height: 26px; border-radius: 6px; color: var(--muted); opacity: 0; }
+  .nav-row:hover .fav-toggle, .fav-toggle:focus-visible { opacity: 1; }
+  .fav-toggle:hover { background: var(--panel-2); color: var(--star); }
+  .fav-toggle.on { opacity: 1; color: var(--star); }
+  .fav-toggle.on svg { fill: currentColor; }
+  @media (hover: none) { .fav-toggle { opacity: .45; } .fav-toggle.on { opacity: 1; } }
   .del { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 6px; color: var(--muted); font-size: 12px; opacity: 0; }
-  .custom-row:hover .del, .del:focus-visible { opacity: 1; }
+  .nav-row:hover .del, .del:focus-visible { opacity: 1; }
   .del:hover { background: var(--panel-2); color: var(--accent); }
   @media (hover: none) { .del { opacity: .7; } }
   .add-card { text-align: left; font: inherit; color: var(--muted); border-style: dashed; cursor: pointer; }
@@ -576,11 +583,18 @@
   const navLink = item => `<a ${linkAttrs(item)}>${siteIcon(item, 16)}<span class="nm">${esc(item.name)}</span>${badge(item)}</a>`;
   const card = item => `<a class="card" ${linkAttrs(item)}><span class="ico">${siteIcon(item, 18)}</span><span class="txt"><b>${esc(item.name)}${badge(item)}</b><span class="desc">${esc(item.desc || new URL(item.url).hostname)}</span></span></a>`;
 
+  const favToggle = item => {
+    const on = favorites.includes(item.id);
+    const label = `${esc(item.name)} 즐겨찾기 ${on ? "해제" : "추가"}`;
+    return `<button class="fav-toggle${on ? " on" : ""}" data-fav="${item.id}" aria-pressed="${on}" title="${label}" aria-label="${label}">${icon("star", 14)}</button>`;
+  };
+  const navRow = item => `<div class="nav-row">${navLink(item)}${favToggle(item)}</div>`;
+
   function renderNav() {
     $("navCats").innerHTML =
-      CATEGORIES.map(c => `<h3>${c.name}</h3>` + c.items.map(navLink).join("")).join("") +
+      CATEGORIES.map(c => `<h3>${c.name}</h3>` + c.items.map(navRow).join("")).join("") +
       `<h3 class="custom-head">${CUSTOM_CATEGORY}<button class="add-btn" data-add-site>+ 추가</button></h3>` +
-      customSites.map(i => `<div class="custom-row">${navLink(i)}<button class="del" data-del="${i.id}" title="삭제" aria-label="${esc(i.name)} 삭제">${icon("x", 14)}</button></div>`).join("");
+      customSites.map(i => `<div class="nav-row">${navLink(i)}${favToggle(i)}<button class="del" data-del="${i.id}" title="삭제" aria-label="${esc(i.name)} 삭제">${icon("x", 14)}</button></div>`).join("");
   }
   renderNav();
 
@@ -657,8 +671,15 @@
     const favItems = favorites.map(id => ITEMS[id]);
     const recentItems = recent.filter(id => id !== current && !favorites.includes(id)).slice(0, 4).map(id => ITEMS[id]);
     $("navQuick").innerHTML =
-      (favItems.length ? `<h3>★ 즐겨찾기</h3>${favItems.map(navLink).join("")}` : "") +
-      (recentItems.length ? `<h3>최근</h3>${recentItems.map(navLink).join("")}` : "");
+      (favItems.length ? `<h3>★ 즐겨찾기</h3>${favItems.map(navRow).join("")}` : "") +
+      (recentItems.length ? `<h3>최근</h3>${recentItems.map(navRow).join("")}` : "");
+    document.querySelectorAll("#navCats [data-fav]").forEach(b => {
+      const on = favorites.includes(b.dataset.fav), name = ITEMS[b.dataset.fav].name;
+      b.classList.toggle("on", on);
+      b.setAttribute("aria-pressed", String(on));
+      b.title = `${name} 즐겨찾기 ${on ? "해제" : "추가"}`;
+      b.setAttribute("aria-label", b.title);
+    });
     renderTabbar();
     document.querySelectorAll(".nav a, .tabbar a").forEach(a =>
       a.classList.toggle("active", current ? a.dataset.id === current : a.hasAttribute("data-home")));
@@ -759,9 +780,7 @@
 
     store.set("last", location.hash.slice(1));
 
-    const isFav = favorites.includes(left.id);
-    $("favBtn").classList.toggle("on", isFav);
-    $("favBtn").setAttribute("aria-pressed", String(isFav));
+    renderFavBtn();
     $("title").innerHTML = `${esc(left.name)}<small>${left.category}</small>`;
     document.title = `${left.name} · NIKKE Portal`;
     $("openBtn").href = left.url;
@@ -880,9 +899,23 @@
   function openNav() { $("app").classList.add("nav-open"); }
   function closeNav() { $("app").classList.remove("nav-open"); }
 
+  function renderFavBtn() {
+    const isFav = favorites.includes(current);
+    $("favBtn").classList.toggle("on", isFav);
+    $("favBtn").setAttribute("aria-pressed", String(isFav));
+  }
+
   // 사이트 링크 클릭: 새 탭 사이트는 최근 목록만 갱신, 나머지는 나란히 보기 상태를 유지하며 이동
   document.addEventListener("click", e => {
     if (e.target.closest("[data-add-site]")) { openAddDialog(); return; }
+    // 메뉴의 별: 사이트를 열지 않고 즐겨찾기만 바꾼다 (모바일 서랍도 닫지 않음)
+    const fav = e.target.closest("[data-fav]");
+    if (fav) {
+      toggleFavorite(fav.dataset.fav);
+      renderQuick();
+      if (current) renderFavBtn(); else renderHome();
+      return;
+    }
     const del = e.target.closest("[data-del]");
     if (del) {
       const item = ITEMS[del.dataset.del];
