@@ -176,6 +176,14 @@
   .card:hover { border-color: var(--accent); }
   .card b { display: flex; justify-content: space-between; gap: 6px; margin-bottom: 4px; }
   .card span.desc { color: var(--muted); font-size: 12px; }
+  .guide {
+    padding: 14px 16px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line);
+    color: var(--muted); font-size: 13px; line-height: 1.7;
+  }
+  .guide p { margin: 0; }
+  .guide ol { margin: 6px 0 0; padding-left: 20px; }
+  .guide a { color: var(--accent); }
+  .guide b { color: var(--text); font-weight: 600; }
   .notice {
     max-width: 480px; margin: 12vh auto 0; text-align: center;
   }
@@ -487,6 +495,15 @@
       <div class="group"><h2>${CUSTOM_CATEGORY}</h2><div class="cards">
         ${customSites.map(card).join("")}
         <button class="card add-card" data-add-site><b>+ 사이트 추가</b><span class="desc">주소를 넣으면 이 브라우저의 목록에 추가됩니다</span></button>
+      </div></div>
+      <div class="group"><h2>저장 데이터 연동 (선택, PC)</h2><div class="guide">
+        <p>화면 안에 띄운 사이트는 원래 사이트에 직접 들어갔을 때와 저장 데이터가 따로 관리됩니다. 사용자 스크립트를 설치하면 여기서도 같은 데이터를 씁니다.</p>
+        <ol>
+          <li><a href="https://www.tampermonkey.net/" target="_blank" rel="noopener">Tampermonkey</a> 설치 — Chrome·Edge는 확장 프로그램 관리에서 <b>사용자 스크립트 허용</b>을 켜기</li>
+          <li><a href="https://ssissun.github.io/nikke-portal/nikke-portal-sync.user.js" target="_blank" rel="noopener">연동 스크립트 설치</a> — 설치 화면에 "모든 사이트에서 실행"으로 나오지만, 이 화면에서 연 사이트에서만 동작합니다</li>
+          <li>여기서 사이트를 한 번 열기 → 원래 사이트에 <b>직접 한 번 들어가기</b> → 여기서 ⟳ 새로고침</li>
+        </ol>
+        <p>바뀌기 전 값은 백업으로 남고, Tampermonkey 메뉴 → <b>백업 복원</b>으로 되살릴 수 있습니다. <a href="https://github.com/ssissun/nikke-portal#저장-데이터-연동-선택-pc" target="_blank" rel="noopener">자세한 설명</a></p>
       </div></div>`;
   }
 
