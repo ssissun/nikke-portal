@@ -490,7 +490,9 @@
   // sync:false → 저장 데이터 연동 스크립트를 쓰지 않음 (로그인 플랫폼·커뮤니티 글·구글 시트처럼 직접 접속이 잦고 저장 데이터가 큰 사이트)
   const CATEGORIES = [
     { name: "공식", items: [
-      { id: "shiftypad", name: "시프티패드", short: "시프티", icon: "gamepad", desc: "블라블라링크 · 내 계정 게임 데이터 (로그인 필요)", url: "https://www.blablalink.com/shiftyspad/home", sync: false },
+      // 화면 안에서는 언어 쿠키가 막혀 브라우저 첫 언어로 정하는데, 사이트가 ko-KR을 몰라 영어로 열린다 → 주소로 한국어 지정
+      { id: "shiftypad", name: "시프티패드", short: "시프티", icon: "gamepad", desc: "블라블라링크 · 내 계정 게임 데이터 (로그인 필요)", url: "https://www.blablalink.com/shiftyspad/home",
+        src: "https://www.blablalink.com/shiftyspad/home?lang=ko", sync: false },
     ]},
     { name: "딜량계산기", items: [
       { id: "dildoro", name: "딜도로", short: "딜도로", icon: "calculator", url: "https://dildoro.com/", embed: false },
