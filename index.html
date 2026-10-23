@@ -276,6 +276,11 @@
     background: var(--panel); color: var(--text); border: 1px solid var(--warn); font-size: 13px;
   }
   .hint span { flex: 1; }
+  /* 나란히 보기에서 사이트별 안내는 그 사이트 칸 안에만 (경계선 반쪽 3px + 여백 12px) */
+  .viewport.split .hint[data-pane="left"] { right: calc(100% - var(--split, 50%) + 15px); }
+  .viewport.split .hint[data-pane="right"] { left: calc(var(--split, 50%) + 15px); }
+  .viewport.split.col .hint[data-pane="left"] { right: 12px; bottom: calc(100% - var(--split-v, 50%) + 15px); }
+  .viewport.split.col .hint[data-pane="right"] { left: 12px; }
 
   /* Mobile favorites bar */
   .tabbar { display: none; }
@@ -443,7 +448,7 @@
         <a class="icon-btn" id="paneOpenR" target="_blank" rel="noopener" title="새 탭" aria-label="이 사이트 새 탭으로 열기"></a>
         <button class="icon-btn" id="paneCloseR" title="닫기" aria-label="닫기"></button>
       </div>
-      <div class="hint" id="hint" hidden><span id="hintText"></span><button class="icon-btn" id="hintClose">닫기</button></div>
+      <div class="hint" id="hint" hidden><span id="hintText"></span><button class="icon-btn" id="hintNever">다시 보지 않기</button><button class="icon-btn" id="hintClose">닫기</button></div>
     </div>
     <nav class="tabbar" id="tabbar"></nav>
   </main>
@@ -501,6 +506,9 @@
   // src → iframe용 주소 (openUrl과 다를 때)
   // short → 모바일 하단 탭 이름 (없으면 name), icon → ICONS 이름 (내 사이트는 link)
   // sync:false → 저장 데이터 연동 스크립트를 쓰지 않음 (로그인 플랫폼·커뮤니티 글·구글 시트처럼 직접 접속이 잦고 저장 데이터가 큰 사이트)
+  // hint → 화면 안에서 열 때 아래에 띄울 안내
+  // 아카라이브는 로그인·CSRF 쿠키가 SameSite=Lax라 화면 안에서는 로그인이 안 된다
+  const ARCA_HINT = "글 보기는 여기서 되지만, 아카라이브 로그인(댓글·추천)은 이 화면 안에서 안 돼요. 오른쪽 위 ↗ 새 탭으로 열어 주세요.";
   const CATEGORIES = [
     { name: "공식", items: [
       // 화면 안에서는 사이트의 언어·게임 ID 쿠키(SameSite=Lax)가 막혀 주소로 넘긴다. 언어가 없으면 ko-KR을 몰라 영어로, 게임 ID가 없으면 유니온 멤버 보기가 404
@@ -515,7 +523,7 @@
     ]},
     { name: "유레", items: [
       { id: "ur-calc", name: "유레 효율계산기", short: "유레효율", icon: "calculator", url: "https://msprivaty.com/" },
-      { id: "ur-sheet", name: "유레 결산 시트", short: "유레결산", icon: "table", url: "https://arca.live/b/nikketgv/161405505", sync: false },
+      { id: "ur-sheet", name: "유레 결산 시트", short: "유레결산", icon: "table", url: "https://arca.live/b/nikketgv/161405505", sync: false, hint: ARCA_HINT },
       { id: "ur-autosync", name: "결산 시트 자동 입력 툴", short: "결산자동", icon: "zap", url: "https://ssissun.github.io/nikke-raid-autosync-spa/" },
     ]},
     { name: "오버로드", items: [
@@ -538,7 +546,7 @@
       { id: "story-dc", name: "스토리 순서 (디시 뉴비 정리)", short: "스토리C", icon: "listOrdered", url: "https://gall.dcinside.com/mgallery/board/view/?id=gov&no=4053990", sync: false },
     ]},
     { name: "육성", items: [
-      { id: "growth", name: "니케 육성 정리", short: "육성정리", icon: "book", url: "https://arca.live/b/nikketgv/125575794", sync: false },
+      { id: "growth", name: "니케 육성 정리", short: "육성정리", icon: "book", url: "https://arca.live/b/nikketgv/125575794", sync: false, hint: ARCA_HINT },
     ]},
     { name: "패키지", items: [
       { id: "package", name: "패키지 효율표 시트", short: "패키지", icon: "package",
@@ -834,6 +842,16 @@
       $("paneOpenL").href = left.url;
       $("paneOpenR").href = right.url;
     }
+    // 사이트별 안내: '다시 보지 않기'를 누른 사이트는 건너뛴다
+    const dismissed = store.get("hint-dismissed", []);
+    const hintAt = [[left, "left"], ...(splitDir ? [[right, "right"]] : [])].find(([s]) => s.hint && !dismissed.includes(s.id));
+    if (hintAt) {
+      $("hintText").textContent = hintAt[0].hint;
+      $("hint").dataset.pane = hintAt[1];
+      $("hint").dataset.site = hintAt[0].id;
+      $("hintNever").hidden = false;
+      $("hint").hidden = false;
+    }
     updateLoading();
   }
 
@@ -1050,10 +1068,18 @@
     });
     if (blocked.length) {
       $("hintText").textContent = "브라우저가 두 번째 새 탭을 막았습니다. 주소창 오른쪽의 팝업 차단 아이콘을 눌러 이 사이트의 팝업을 허용하면 다음부터 두 사이트가 함께 열립니다.";
+      $("hint").dataset.pane = ""; // 두 사이트에 대한 안내라 전체 너비
+      $("hint").dataset.site = "";
+      $("hintNever").hidden = true;
       $("hint").hidden = false;
     }
   });
   $("hintClose").addEventListener("click", () => $("hint").hidden = true);
+  $("hintNever").addEventListener("click", () => {
+    const id = $("hint").dataset.site;
+    if (id) store.set("hint-dismissed", [...new Set([...store.get("hint-dismissed", []), id])]);
+    $("hint").hidden = true;
+  });
   // 나란히 보기 비율 조절: 드래그 · 더블클릭은 반반 · 방향키 (방향별로 비율 저장)
   const SPLIT_VAR = { row: "--split", col: "--split-v" }, SPLIT_KEY = { row: "split", col: "split-v" };
   const splitPct = { row: 50, col: 50 };
