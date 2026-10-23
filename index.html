@@ -269,6 +269,13 @@
   }
   .notice p { color: var(--muted); line-height: 1.6; }
   .notice .icon-btn { height: 42px; padding: 0 18px; background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  /* 화면 아래 안내 (예: 두 번째 새 탭이 막혔을 때) */
+  .hint {
+    position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 5;
+    display: flex; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 8px;
+    background: var(--panel); color: var(--text); border: 1px solid var(--warn); font-size: 13px;
+  }
+  .hint span { flex: 1; }
 
   /* Mobile favorites bar */
   .tabbar { display: none; }
@@ -436,6 +443,7 @@
         <a class="icon-btn" id="paneOpenR" target="_blank" rel="noopener" title="새 탭" aria-label="이 사이트 새 탭으로 열기"></a>
         <button class="icon-btn" id="paneCloseR" title="닫기" aria-label="닫기"></button>
       </div>
+      <div class="hint" id="hint" hidden><span id="hintText"></span><button class="icon-btn" id="hintClose">닫기</button></div>
     </div>
     <nav class="tabbar" id="tabbar"></nav>
   </main>
@@ -777,6 +785,7 @@
     $("viewport").hidden = !(left && embeddable(left));
     $("favBtn").hidden = $("openBtn").hidden = !left;
     $("reloadBtn").hidden = !(left && embeddable(left));
+    $("hint").hidden = true;
     Object.values(frames).forEach(f => { f.hidden = true; f.classList.remove("pane-left", "pane-right"); });
     $("viewport").classList.toggle("split", !!splitDir);
     $("viewport").classList.toggle("col", splitDir === "col");
@@ -1029,8 +1038,22 @@
   $("reloadBtn").addEventListener("click", () => shownIds().forEach(reloadFrame));
   $("paneReloadL").addEventListener("click", () => reloadFrame(current));
   $("paneReloadR").addEventListener("click", () => reloadFrame(currentRight));
-  // 왼쪽은 링크 기본 동작으로 열고, 나란히 보기면 오른쪽도 함께 연다
-  $("openBtn").addEventListener("click", () => { if (splitDir) window.open(ITEMS[currentRight].url, "_blank", "noopener"); });
+  // 나란히 보기면 두 사이트를 왼쪽부터 연다. 크롬은 한 번 누를 때 새 탭 하나만 허용하므로
+  // 두 번째가 막히면(window.open이 null) 이 사이트의 팝업을 허용하는 방법을 알려 준다
+  $("openBtn").addEventListener("click", e => {
+    if (!splitDir) return;
+    e.preventDefault();
+    const blocked = [current, currentRight].filter(id => {
+      const w = window.open(ITEMS[id].url, "_blank");
+      if (w) w.opener = null;
+      return !w;
+    });
+    if (blocked.length) {
+      $("hintText").textContent = "브라우저가 두 번째 새 탭을 막았습니다. 주소창 오른쪽의 팝업 차단 아이콘을 눌러 이 사이트의 팝업을 허용하면 다음부터 두 사이트가 함께 열립니다.";
+      $("hint").hidden = false;
+    }
+  });
+  $("hintClose").addEventListener("click", () => $("hint").hidden = true);
   // 나란히 보기 비율 조절: 드래그 · 더블클릭은 반반 · 방향키 (방향별로 비율 저장)
   const SPLIT_VAR = { row: "--split", col: "--split-v" }, SPLIT_KEY = { row: "split", col: "split-v" };
   const splitPct = { row: 50, col: 50 };
