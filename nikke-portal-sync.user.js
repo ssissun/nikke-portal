@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         NIKKE Hub 저장 데이터 연동
+// @name         NIKKE Portal 저장 데이터 연동
 // @namespace    https://ssissun.github.io/nikke-hub/
-// @version      1.0.0
-// @description  NIKKE Hub 안에서 연 사이트가 원래 사이트에 직접 들어갔을 때와 같은 저장 데이터(localStorage)를 쓰게 맞춥니다
+// @version      1.1.0
+// @description  NIKKE Portal 안에서 연 사이트가 원래 사이트에 직접 들어갔을 때와 같은 저장 데이터(localStorage)를 쓰게 맞춥니다
 // @match        https://*.soloraidhistory.vercel.app/*
 // @match        https://*.msprivaty.com/*
 // @match        https://*.syuen.love/*
@@ -15,8 +15,8 @@
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_registerMenuCommand
-// @updateURL    https://ssissun.github.io/nikke-hub/nikke-hub-sync.user.js
-// @downloadURL  https://ssissun.github.io/nikke-hub/nikke-hub-sync.user.js
+// @updateURL    https://ssissun.github.io/nikke-portal/nikke-portal-sync.user.js
+// @downloadURL  https://ssissun.github.io/nikke-portal/nikke-portal-sync.user.js
 // ==/UserScript==
 
 (() => {
@@ -118,7 +118,7 @@
 
     const shared = GM_getValue(K_SHARED);
     if (!shared) {
-      // 원본은 직접 접속한 쪽. 허브는 원본이 올라오기 전까지 아무것도 올리지 않는다
+      // 원본은 직접 접속한 쪽. 포털은 원본이 올라오기 전까지 아무것도 올리지 않는다
       if (ctx === "direct") { GM_setValue(K_SHARED, local); GM_setValue(K_BASE, local); }
       lastSynced = localJson;
       return;
@@ -163,7 +163,7 @@
   }
 
   const REASONS = { join: "첫 연동", conflict: "양쪽 동시 수정", restore: "복원 전 값" };
-  const FROM = { hub: "허브", direct: "직접 접속" };
+  const FROM = { hub: "포털", direct: "직접 접속" };
 
   function restoreBackup() {
     const list = GM_getValue(K_BACKUP, []);

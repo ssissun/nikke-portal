@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>NIKKE Hub</title>
+<title>NIKKE Portal</title>
 <script>
   // 테마·사이드바 접힘 상태를 첫 렌더 전에 적용 (깜빡임 방지). 저장된 테마가 없으면 시스템 설정을 따른다
   try {
@@ -296,7 +296,7 @@
 <body>
 <div class="app" id="app">
   <aside class="sidebar" id="sidebar">
-    <a class="brand" href="#"><span class="dot"></span>NIKKE Hub</a>
+    <a class="brand" href="#"><span class="dot"></span>NIKKE Portal</a>
     <nav class="nav" id="nav">
       <div class="quick" id="navQuick"></div>
       <div id="navCats"></div>
@@ -479,7 +479,7 @@
   function renderHome() {
     const favItems = favorites.map(id => ITEMS[id]);
     $("home").innerHTML = `
-      <h1>NIKKE Hub</h1>
+      <h1>NIKKE Portal</h1>
       <p class="lead">니케 유용한 사이트 모음 — 대부분은 이 화면 안에서 바로 열립니다. <kbd>Ctrl</kbd>+<kbd>K</kbd>로 검색.</p>
       ${favItems.length ? homeGroup("★ 즐겨찾기", favItems) : ""}
       ${CATEGORIES.map(c => homeGroup(c.name, c.items)).join("")}
@@ -595,7 +595,7 @@
     if (!left) {
       store.set("last", null);
       $("title").textContent = "홈";
-      document.title = "NIKKE Hub";
+      document.title = "NIKKE Portal";
       renderHome();
       renderQuick();
       updateLoading();
@@ -611,7 +611,7 @@
     $("favBtn").classList.toggle("on", isFav);
     $("favBtn").setAttribute("aria-pressed", String(isFav));
     $("title").innerHTML = `${esc(left.name)}<small>${left.category}</small>`;
-    document.title = `${left.name} · NIKKE Hub`;
+    document.title = `${left.name} · NIKKE Portal`;
     $("openBtn").href = left.url;
 
     if (!embeddable(left)) {
