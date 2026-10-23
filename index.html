@@ -119,6 +119,8 @@
   .icon-btn:hover { border-color: var(--muted); }
   .icon-btn.on { border-color: var(--accent); color: var(--accent); }
   .icon-btn.star.on { border-color: var(--star); color: var(--star); }
+  .icon-btn.off { opacity: .4; cursor: not-allowed; }
+  .icon-btn.off:hover { border-color: var(--line); }
   .icon-btn kbd { font: 11px/1 inherit; color: var(--muted); }
 
   .viewport { position: relative; flex: 1; min-height: 0; background: #fff; }
@@ -160,6 +162,17 @@
   #paneHeadL { left: 0; width: calc(var(--split, 50%) - 3px); }
   #paneHeadR { left: calc(var(--split, 50%) + 3px); right: 0; }
   .viewport:not(.split) .pane-head { display: none; }
+  /* 위아래 나란히 보기 */
+  .viewport.split.col iframe.pane-left { left: 0; width: 100%; height: calc(var(--split-v, 50%) - 3px - var(--pane-head-h)); }
+  .viewport.split.col iframe.pane-right {
+    left: 0; width: 100%;
+    top: calc(var(--split-v, 50%) + 3px + var(--pane-head-h)); height: calc(100% - var(--split-v, 50%) - 3px - var(--pane-head-h));
+  }
+  .viewport.split.col .splitter { top: calc(var(--split-v, 50%) - 3px); bottom: auto; left: 0; right: 0; width: auto; height: 6px; cursor: row-resize; }
+  .viewport.split.col .splitter::after { top: 2px; left: 50%; width: 32px; height: 2px; margin: 0 0 0 -16px; }
+  .viewport.resizing.col { cursor: row-resize; }
+  .viewport.split.col #paneHeadL { width: auto; right: 0; }
+  .viewport.split.col #paneHeadR { left: 0; top: calc(var(--split-v, 50%) + 3px); }
 
   /* Home / blocked panels */
   .page { flex: 1; overflow-y: auto; padding: 24px; background: var(--bg); }
@@ -256,13 +269,6 @@
 
   .scrim { display: none; }
 
-  @media (max-width: 1023px) {
-    .pc-only { display: none !important; }
-    .pane-head, .splitter { display: none; }
-    .viewport.split iframe.pane-left { top: 0; width: 100%; height: 100%; }
-    .viewport.split iframe.pane-right { display: none; }
-  }
-
   /* Mobile */
   @media (max-width: 768px) {
     .app, .nav-collapsed .app { grid-template-columns: 1fr; }
@@ -285,16 +291,17 @@
     .cards { grid-template-columns: 1fr 1fr; }
     .palette { padding-top: 8px; }
     .tabbar {
-      display: flex; gap: 6px; overflow-x: auto;
-      padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+      display: grid; grid-template-columns: repeat(var(--tabs), minmax(0, 1fr));
+      padding: 4px 4px calc(4px + env(safe-area-inset-bottom));
       background: var(--panel); border-top: 1px solid var(--line);
     }
     .tabbar a {
-      flex: 0 0 auto; max-width: 42vw; padding: 8px 12px; border-radius: 999px;
-      background: var(--panel-2); text-decoration: none; font-size: 13px;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      display: flex; align-items: center; justify-content: center;
+      min-height: 44px; padding: 0 2px; border-radius: 8px;
+      text-decoration: none; font-size: 11.5px; color: var(--text);
     }
-    .tabbar a.active { background: var(--accent); color: #fff; }
+    .tabbar a span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tabbar a.active { background: var(--accent); color: #fff; font-weight: 600; }
   }
   @media (max-width: 380px) {
     .cards { grid-template-columns: 1fr; }
@@ -322,8 +329,11 @@
       </button>
       <button class="icon-btn" id="themeBtn"></button>
       <button class="icon-btn star" id="favBtn" title="즐겨찾기" aria-pressed="false" hidden>☆</button>
-      <button class="icon-btn pc-only" id="splitBtn" title="나란히 보기" aria-label="나란히 보기" hidden>
+      <button class="icon-btn" id="splitRowBtn" hidden>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/></svg>
+      </button>
+      <button class="icon-btn" id="splitColBtn" hidden>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 12h18"/></svg>
       </button>
       <button class="icon-btn" id="reloadBtn" title="새로고침" hidden>⟳</button>
       <a class="icon-btn" id="openBtn" target="_blank" rel="noopener" hidden>↗<span class="label">새 탭</span></a>
@@ -337,7 +347,7 @@
            aria-valuemin="20" aria-valuemax="80" tabindex="0" title="드래그해서 너비 조절 · 더블클릭하면 반반"></div>
       <div class="pane-head" id="paneHeadL">
         <span id="paneNameL"></span>
-        <button class="icon-btn" id="swapBtn" title="좌우 바꾸기">⇄</button>
+        <button class="icon-btn" id="swapBtn"></button>
       </div>
       <div class="pane-head" id="paneHeadR">
         <span id="paneNameR"></span>
@@ -345,7 +355,7 @@
         <button class="icon-btn" id="paneCloseR" title="닫기">✕</button>
       </div>
     </div>
-    <nav class="tabbar" id="tabbar" hidden></nav>
+    <nav class="tabbar" id="tabbar"></nav>
   </main>
 </div>
 
@@ -366,7 +376,7 @@
 
 <div class="palette" id="palette" hidden>
   <div class="palette-box" role="dialog" aria-modal="true" aria-label="사이트 검색">
-    <div class="mode" id="paletteMode" hidden>오른쪽에 띄울 사이트 선택</div>
+    <div class="mode" id="paletteMode" hidden></div>
     <input id="paletteInput" placeholder="사이트 이름·카테고리 검색" autocomplete="off" spellcheck="false">
     <ul id="paletteList" role="listbox"></ul>
   </div>
@@ -375,46 +385,47 @@
 <script>
   // embed:false → 사이트가 iframe 임베딩을 차단하므로 새 탭으로만 연다
   // src → iframe용 주소 (openUrl과 다를 때)
+  // short → 모바일 하단 탭 이름 (없으면 name)
   // sync:false → 저장 데이터 연동 스크립트를 쓰지 않음 (로그인 플랫폼·커뮤니티 글·구글 시트처럼 직접 접속이 잦고 저장 데이터가 큰 사이트)
   const CATEGORIES = [
     { name: "공식", items: [
-      { id: "shiftypad", name: "시프티패드", desc: "블라블라링크 · 내 계정 게임 데이터 (로그인 필요)", url: "https://www.blablalink.com/shiftyspad/home", sync: false },
+      { id: "shiftypad", name: "시프티패드", short: "시프티", desc: "블라블라링크 · 내 계정 게임 데이터 (로그인 필요)", url: "https://www.blablalink.com/shiftyspad/home", sync: false },
     ]},
     { name: "딜량계산기", items: [
-      { id: "dildoro", name: "딜도로", url: "https://dildoro.com/", embed: false },
+      { id: "dildoro", name: "딜도로", short: "딜도로", url: "https://dildoro.com/", embed: false },
     ]},
     { name: "기록소", items: [
-      { id: "solo-archive", name: "솔레금서고", url: "https://soloraidhistory.vercel.app/" },
+      { id: "solo-archive", name: "솔레금서고", short: "솔레기록", url: "https://soloraidhistory.vercel.app/" },
     ]},
     { name: "유레", items: [
-      { id: "ur-calc", name: "유레 효율계산기", url: "https://msprivaty.com/" },
-      { id: "ur-sheet", name: "유레 결산 시트", url: "https://arca.live/b/nikketgv/161405505", sync: false },
-      { id: "ur-autosync", name: "결산 시트 자동 입력 툴", url: "https://ssissun.github.io/nikke-raid-autosync-spa/" },
+      { id: "ur-calc", name: "유레 효율계산기", short: "유레효율", url: "https://msprivaty.com/" },
+      { id: "ur-sheet", name: "유레 결산 시트", short: "유레결산", url: "https://arca.live/b/nikketgv/161405505", sync: false },
+      { id: "ur-autosync", name: "결산 시트 자동 입력 툴", short: "결산자동", url: "https://ssissun.github.io/nikke-raid-autosync-spa/" },
     ]},
     { name: "오버로드", items: [
-      { id: "module-opt", name: "모듈작 최적화 계산기", url: "https://syuen.love/" },
+      { id: "module-opt", name: "모듈작 최적화 계산기", short: "모듈작", url: "https://syuen.love/" },
     ]},
     { name: "소장품", items: [
-      { id: "doll-opt", name: "소장품 최적화 계산기", url: "https://syuen.love/doll/" },
+      { id: "doll-opt", name: "소장품 최적화 계산기", short: "소장품", url: "https://syuen.love/doll/" },
     ]},
     { name: "아레나", items: [
-      { id: "deck-simple", name: "버충 계산기 (간단)", url: "https://nikke-deck.com/" },
-      { id: "deck-advanced", name: "버충 계산기 (심화)", url: "https://nikke.top/" },
-      { id: "arena-penalty", name: "아레나 페널티 계산기", url: "https://nikke-arena.netlify.app/" },
+      { id: "deck-simple", name: "버충 계산기 (간단)", short: "버충간단", url: "https://nikke-deck.com/" },
+      { id: "deck-advanced", name: "버충 계산기 (심화)", short: "버충심화", url: "https://nikke.top/" },
+      { id: "arena-penalty", name: "아레나 페널티 계산기", short: "페널티", url: "https://nikke-arena.netlify.app/" },
     ]},
     { name: "니케DB", items: [
-      { id: "nikke-db", name: "니케DB 비주얼라이저", desc: "일러스트 · Live2D 스탠딩 · SD", url: "https://nikke-db.pages.dev/visualiser" },
+      { id: "nikke-db", name: "니케DB 비주얼라이저", short: "니케DB", desc: "일러스트 · Live2D 스탠딩 · SD", url: "https://nikke-db.pages.dev/visualiser" },
     ]},
     { name: "스토리 보는 순서", items: [
-      { id: "story-ssissun", name: "스토리 순서 (storyline)", url: "https://ssissun.github.io/nikke-storyline" },
-      { id: "story-github", name: "스토리 순서 (nikke-story)", url: "https://nikke-story.github.io/" },
-      { id: "story-dc", name: "스토리 순서 (디시 뉴비 정리)", url: "https://gall.dcinside.com/mgallery/board/view/?id=gov&no=4053990", sync: false },
+      { id: "story-ssissun", name: "스토리 순서 (storyline)", short: "스토리A", url: "https://ssissun.github.io/nikke-storyline" },
+      { id: "story-github", name: "스토리 순서 (nikke-story)", short: "스토리B", url: "https://nikke-story.github.io/" },
+      { id: "story-dc", name: "스토리 순서 (디시 뉴비 정리)", short: "스토리C", url: "https://gall.dcinside.com/mgallery/board/view/?id=gov&no=4053990", sync: false },
     ]},
     { name: "육성", items: [
-      { id: "growth", name: "니케 육성 정리", url: "https://arca.live/b/nikketgv/125575794", sync: false },
+      { id: "growth", name: "니케 육성 정리", short: "육성정리", url: "https://arca.live/b/nikketgv/125575794", sync: false },
     ]},
     { name: "패키지", items: [
-      { id: "package", name: "패키지 효율표 시트",
+      { id: "package", name: "패키지 효율표 시트", short: "패키지",
         url: "https://docs.google.com/spreadsheets/d/1qUSwYnpDtWAD_aq_4L6dC6py2vM19WtLed2AGKSdIPk/edit?gid=2059216737#gid=2059216737",
         src: "https://docs.google.com/spreadsheets/d/1qUSwYnpDtWAD_aq_4L6dC6py2vM19WtLed2AGKSdIPk/htmlview?gid=2059216737", sync: false },
     ]},
@@ -557,9 +568,19 @@
     $("navQuick").innerHTML =
       (favItems.length ? `<h3>★ 즐겨찾기</h3>${favItems.map(navLink).join("")}` : "") +
       (recentItems.length ? `<h3>최근</h3>${recentItems.map(navLink).join("")}` : "");
-    $("tabbar").innerHTML = favItems.map(i => `<a ${linkAttrs(i)}>${i.name}</a>`).join("");
-    $("tabbar").hidden = !favItems.length;
-    document.querySelectorAll(".nav a, .tabbar a").forEach(a => a.classList.toggle("active", a.dataset.id === current));
+    renderTabbar();
+    document.querySelectorAll(".nav a, .tabbar a").forEach(a =>
+      a.classList.toggle("active", current ? a.dataset.id === current : a.hasAttribute("data-home")));
+  }
+
+  // 모바일 하단 탭: 홈 + 5칸 (320px 폭에서도 4글자가 잘리지 않는 칸 수). 즐겨찾기를 먼저 넣고, 남는 칸은 아래 순서로 채운다
+  const TAB_SLOTS = 5;
+  const TAB_DEFAULTS = ["shiftypad", "dildoro", "module-opt", "doll-opt", "deck-simple"];
+  function renderTabbar() {
+    const ids = [...new Set([...favorites, ...TAB_DEFAULTS])].slice(0, TAB_SLOTS);
+    $("tabbar").style.setProperty("--tabs", ids.length + 1);
+    $("tabbar").innerHTML = '<a href="#" data-home><span>홈</span></a>' +
+      ids.map(id => ITEMS[id]).map(i => `<a ${linkAttrs(i)}><span>${esc(i.short || i.name)}</span></a>`).join("");
   }
 
   // ---- iframe ----
@@ -596,34 +617,56 @@
     location.hash = currentRight && id !== currentRight ? `${id}|${currentRight}` : id;
   }
 
+  // ---- 나란히 보기 방향: 좌우(row)·위아래(col). 두 칸이 각각 MIN_PANE px 이상 나오는 방향만 쓴다 ----
+  const MIN_PANE = 380;
+  let splitDir = null; // 지금 화면에 적용된 방향 (나란히 보기가 아니면 null)
+
+  function splitDirs() {
+    const rootStyle = getComputedStyle(document.documentElement);
+    const drawer = matchMedia("(max-width: 768px)").matches;
+    const navW = drawer || document.documentElement.classList.contains("nav-collapsed") ? 0 : parseFloat(rootStyle.getPropertyValue("--sidebar-w"));
+    const paneHead = parseFloat(rootStyle.getPropertyValue("--pane-head-h"));
+    const w = innerWidth - navW;
+    const h = innerHeight - document.querySelector(".topbar").offsetHeight - $("tabbar").offsetHeight;
+    return [...(w >= MIN_PANE * 2 ? ["row"] : []), ...(h >= (MIN_PANE + paneHead) * 2 + 6 ? ["col"] : [])];
+  }
+  // 마지막에 고른 방향을 쓰고, 그 방향이 안 되는 화면이면 되는 쪽으로
+  function pickDir(dirs) {
+    const pref = store.get("split-dir", "row");
+    return dirs.includes(pref) ? pref : dirs[0] || null;
+  }
+
   function render() {
     const { left, right } = parseHash();
     current = left ? left.id : null;
     currentRight = right ? right.id : null;
     closeNav();
 
+    if (left) addRecent(left.id);
+    renderQuick();
+    const dirs = left && embeddable(left) ? splitDirs() : []; // 하단 탭 높이가 들어가므로 renderQuick 다음에
+    splitDir = right ? pickDir(dirs) : null;
+
     $("home").hidden = !!left;
     $("blocked").hidden = !(left && !embeddable(left));
     $("viewport").hidden = !(left && embeddable(left));
     $("favBtn").hidden = $("openBtn").hidden = !left;
-    $("splitBtn").hidden = $("reloadBtn").hidden = !(left && embeddable(left));
+    $("reloadBtn").hidden = !(left && embeddable(left));
     Object.values(frames).forEach(f => { f.hidden = true; f.classList.remove("pane-left", "pane-right"); });
-    $("viewport").classList.toggle("split", !!right);
-    $("splitBtn").classList.toggle("on", !!right);
+    $("viewport").classList.toggle("split", !!splitDir);
+    $("viewport").classList.toggle("col", splitDir === "col");
+    renderSplitControls(dirs);
 
     if (!left) {
       store.set("last", null);
       $("title").textContent = "홈";
       document.title = "NIKKE Portal";
       renderHome();
-      renderQuick();
       updateLoading();
       return;
     }
 
     store.set("last", location.hash.slice(1));
-    addRecent(left.id);
-    renderQuick();
 
     const isFav = favorites.includes(left.id);
     $("favBtn").textContent = isFav ? "★" : "☆";
@@ -648,7 +691,7 @@
     const lf = getFrame(left);
     lf.hidden = false;
     lf.classList.add("pane-left");
-    if (right) {
+    if (splitDir) {
       const rf = getFrame(right);
       rf.hidden = false;
       rf.classList.add("pane-right");
@@ -658,6 +701,37 @@
     }
     updateLoading();
   }
+
+  // 좌우·위아래 버튼: 둘 다 안 되면 숨기고, 한쪽만 안 되면 그 버튼을 흐리게 두고 이유를 툴팁으로
+  const SPLIT_BTN = { row: "splitRowBtn", col: "splitColBtn" };
+  const SPLIT_NAME = { row: "좌우 나란히 보기", col: "위아래 나란히 보기" };
+  function renderSplitControls(dirs) {
+    const col = splitDir === "col";
+    for (const d of ["row", "col"]) {
+      const b = $(SPLIT_BTN[d]), ok = dirs.includes(d);
+      b.hidden = !dirs.length;
+      b.classList.toggle("off", !ok);
+      b.classList.toggle("on", splitDir === d);
+      b.setAttribute("aria-disabled", String(!ok));
+      b.title = !ok ? `${SPLIT_NAME[d]} — 창 ${d === "row" ? "너비" : "높이"}가 부족합니다`
+        : splitDir === d ? `${SPLIT_NAME[d]} 닫기` : SPLIT_NAME[d];
+      b.setAttribute("aria-label", b.title);
+    }
+    $("swapBtn").textContent = col ? "⇅" : "⇄";
+    $("swapBtn").title = col ? "위아래 바꾸기" : "좌우 바꾸기";
+    $("splitter").setAttribute("aria-orientation", col ? "horizontal" : "vertical");
+    $("splitter").setAttribute("aria-label", col ? "위아래 높이 조절" : "좌우 너비 조절");
+    $("splitter").title = col ? "드래그해서 높이 조절 · 더블클릭하면 반반" : "드래그해서 너비 조절 · 더블클릭하면 반반";
+    if (splitDir) $("splitter").setAttribute("aria-valuenow", Math.round(splitPct[splitDir]));
+  }
+
+  // 화면 크기나 사이드바 접힘이 바뀌어 쓸 수 있는 방향이 달라지면 다시 그린다
+  let lastDirs = "";
+  function refreshSplitDirs() {
+    const key = splitDirs().join();
+    if (key !== lastDirs) { lastDirs = key; render(); }
+  }
+  addEventListener("resize", refreshSplitDirs);
 
   // ---- 검색 팔레트 (Ctrl+K) ----
   let paletteMode = "go", paletteResults = [], paletteSel = 0;
@@ -756,14 +830,22 @@
     if (matchMedia("(max-width: 768px)").matches) { openNav(); return; }
     const collapsed = document.documentElement.classList.toggle("nav-collapsed");
     store.set("nav-collapsed", collapsed);
+    refreshSplitDirs();
   });
   $("scrim").addEventListener("click", closeNav);
   $("searchBtn").addEventListener("click", () => openPalette("go"));
   $("favBtn").addEventListener("click", () => { toggleFavorite(current); render(); });
-  $("splitBtn").addEventListener("click", () => {
-    if (currentRight) location.hash = current;
-    else openPalette("split");
-  });
+  // 같은 방향으로 열려 있으면 닫고, 다른 방향으로 열려 있으면 방향만 바꾸고, 아니면 함께 띄울 사이트를 검색창에서 고른다
+  function onSplitBtn(dir) {
+    if (!splitDirs().includes(dir)) return;
+    if (splitDir === dir) { location.hash = current; return; }
+    store.set("split-dir", dir);
+    if (splitDir) { render(); return; }
+    $("paletteMode").textContent = `${dir === "col" ? "아래에" : "오른쪽에"} 띄울 사이트 선택`;
+    openPalette("split");
+  }
+  $("splitRowBtn").addEventListener("click", () => onSplitBtn("row"));
+  $("splitColBtn").addEventListener("click", () => onSplitBtn("col"));
   $("swapBtn").addEventListener("click", () => { location.hash = `${currentRight}|${current}`; });
   $("paneCloseR").addEventListener("click", () => { location.hash = current; });
   $("reloadBtn").addEventListener("click", () => {
@@ -773,14 +855,17 @@
     f.src = f.src;
     updateLoading();
   });
-  // 나란히 보기 너비 조절: 드래그 · 더블클릭은 반반 · ←/→ (비율 저장)
-  let splitPct = 50;
-  function setSplit(pct) {
-    splitPct = Math.min(80, Math.max(20, pct));
-    $("viewport").style.setProperty("--split", splitPct + "%");
-    $("splitter").setAttribute("aria-valuenow", Math.round(splitPct));
+  // 나란히 보기 비율 조절: 드래그 · 더블클릭은 반반 · 방향키 (방향별로 비율 저장)
+  const SPLIT_VAR = { row: "--split", col: "--split-v" }, SPLIT_KEY = { row: "split", col: "split-v" };
+  const splitPct = { row: 50, col: 50 };
+  function setSplit(dir, pct) {
+    splitPct[dir] = Math.min(80, Math.max(20, pct));
+    $("viewport").style.setProperty(SPLIT_VAR[dir], splitPct[dir] + "%");
+    if (dir === splitDir) $("splitter").setAttribute("aria-valuenow", Math.round(splitPct[dir]));
   }
-  setSplit(store.get("split", 50));
+  const saveSplit = () => store.set(SPLIT_KEY[splitDir], splitPct[splitDir]);
+  setSplit("row", store.get("split", 50));
+  setSplit("col", store.get("split-v", 50));
   $("splitter").addEventListener("pointerdown", e => {
     e.preventDefault();
     $("splitter").setPointerCapture(e.pointerId);
@@ -789,21 +874,24 @@
   $("splitter").addEventListener("pointermove", e => {
     if (!$("splitter").hasPointerCapture(e.pointerId)) return;
     const r = $("viewport").getBoundingClientRect();
-    setSplit((e.clientX - r.left) / r.width * 100);
+    setSplit(splitDir, splitDir === "col" ? (e.clientY - r.top) / r.height * 100 : (e.clientX - r.left) / r.width * 100);
   });
   const endResize = () => {
     if (!$("viewport").classList.contains("resizing")) return;
     $("viewport").classList.remove("resizing");
-    store.set("split", splitPct);
+    saveSplit();
   };
   $("splitter").addEventListener("pointerup", endResize);
   $("splitter").addEventListener("lostpointercapture", endResize);
-  $("splitter").addEventListener("dblclick", () => { setSplit(50); store.set("split", splitPct); });
+  $("splitter").addEventListener("dblclick", () => { setSplit(splitDir, 50); saveSplit(); });
   $("splitter").addEventListener("keydown", e => {
-    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    const step = splitDir === "col"
+      ? { ArrowUp: -2, ArrowDown: 2 }[e.key]
+      : { ArrowLeft: -2, ArrowRight: 2 }[e.key];
+    if (!step) return;
     e.preventDefault();
-    setSplit(splitPct + (e.key === "ArrowLeft" ? -2 : 2));
-    store.set("split", splitPct);
+    setSplit(splitDir, splitPct[splitDir] + step);
+    saveSplit();
   });
 
   window.addEventListener("hashchange", render);
@@ -816,6 +904,7 @@
   const last = store.get("last", null);
   if (!location.hash && last) history.replaceState(null, "", "#" + last);
   render();
+  lastDirs = splitDirs().join();
 </script>
 </body>
 </html>
