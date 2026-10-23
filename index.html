@@ -424,11 +424,16 @@
            aria-valuemin="20" aria-valuemax="80" tabindex="0" title="드래그해서 너비 조절 · 더블클릭하면 반반"></div>
       <div class="pane-head" id="paneHeadL">
         <span id="paneNameL"></span>
+        <button class="icon-btn star" id="paneFavL" aria-pressed="false"></button>
+        <button class="icon-btn" id="paneReloadL" title="새로고침" aria-label="이 사이트 새로고침"></button>
+        <a class="icon-btn" id="paneOpenL" target="_blank" rel="noopener" title="새 탭" aria-label="이 사이트 새 탭으로 열기"></a>
         <button class="icon-btn" id="swapBtn"></button>
       </div>
       <div class="pane-head" id="paneHeadR">
         <span id="paneNameR"></span>
-        <a class="icon-btn" id="paneOpenR" target="_blank" rel="noopener" title="새 탭" aria-label="새 탭"></a>
+        <button class="icon-btn star" id="paneFavR" aria-pressed="false"></button>
+        <button class="icon-btn" id="paneReloadR" title="새로고침" aria-label="이 사이트 새로고침"></button>
+        <a class="icon-btn" id="paneOpenR" target="_blank" rel="noopener" title="새 탭" aria-label="이 사이트 새 탭으로 열기"></a>
         <button class="icon-btn" id="paneCloseR" title="닫기" aria-label="닫기"></button>
       </div>
     </div>
@@ -792,6 +797,9 @@
     $("title").innerHTML = `${esc(left.name)}<small>${left.category}</small>`;
     document.title = `${left.name} · NIKKE Portal`;
     $("openBtn").href = left.url;
+    $("reloadBtn").title = splitDir ? "두 사이트 모두 새로고침" : "새로고침";
+    $("reloadBtn").setAttribute("aria-label", $("reloadBtn").title);
+    $("openBtn").title = splitDir ? "두 사이트 모두 새 탭으로 열기" : "새 탭으로 열기";
 
     if (!embeddable(left)) {
       $("blocked").innerHTML = `
@@ -814,6 +822,7 @@
       rf.classList.add("pane-right");
       $("paneNameL").textContent = left.name;
       $("paneNameR").textContent = right.name;
+      $("paneOpenL").href = left.url;
       $("paneOpenR").href = right.url;
     }
     updateLoading();
@@ -907,10 +916,24 @@
   function openNav() { $("app").classList.add("nav-open"); }
   function closeNav() { $("app").classList.remove("nav-open"); }
 
+  // 나란히 보기면 상단바 버튼은 두 사이트 모두에, 칸 제목줄 버튼은 그 칸 사이트에만
+  const shownIds = () => (splitDir ? [current, currentRight] : [current]).filter(Boolean);
+  function refreshFavorites() { renderQuick(); renderFavBtn(); }
+
   function renderFavBtn() {
-    const isFav = favorites.includes(current);
+    const ids = shownIds(), isFav = ids.length > 0 && ids.every(id => favorites.includes(id));
+    const both = ids.length > 1 ? "두 사이트 " : "";
     $("favBtn").classList.toggle("on", isFav);
     $("favBtn").setAttribute("aria-pressed", String(isFav));
+    $("favBtn").title = `${both}즐겨찾기 ${isFav ? "해제" : "추가"}`;
+    $("favBtn").setAttribute("aria-label", $("favBtn").title);
+    for (const [btn, id] of [["paneFavL", current], ["paneFavR", currentRight]]) {
+      const on = !!id && favorites.includes(id);
+      $(btn).classList.toggle("on", on);
+      $(btn).setAttribute("aria-pressed", String(on));
+      $(btn).title = `즐겨찾기 ${on ? "해제" : "추가"}`;
+      $(btn).setAttribute("aria-label", `이 사이트 ${$(btn).title}`);
+    }
   }
 
   // 사이트 링크 클릭: 새 탭 사이트는 최근 목록만 갱신, 나머지는 나란히 보기 상태를 유지하며 이동
@@ -944,7 +967,9 @@
   $("favBtn").innerHTML = icon("star", 16);
   $("reloadBtn").innerHTML = icon("refresh", 15);
   $("openBtn").innerHTML = icon("external", 15) + '<span class="label">새 탭</span>';
-  $("paneOpenR").innerHTML = icon("external", 13);
+  $("paneOpenR").innerHTML = $("paneOpenL").innerHTML = icon("external", 13);
+  $("paneFavL").innerHTML = $("paneFavR").innerHTML = icon("star", 13);
+  $("paneReloadL").innerHTML = $("paneReloadR").innerHTML = icon("refresh", 13);
   $("paneCloseR").innerHTML = icon("x", 13);
 
   // 라이트·다크 테마 전환 (상태 저장)
@@ -973,7 +998,14 @@
   });
   $("scrim").addEventListener("click", closeNav);
   $("searchBtn").addEventListener("click", () => openPalette("go"));
-  $("favBtn").addEventListener("click", () => { toggleFavorite(current); render(); });
+  // 둘 다 즐겨찾기면 둘 다 해제, 아니면 빠진 쪽을 추가
+  $("favBtn").addEventListener("click", () => {
+    const ids = shownIds(), allFav = ids.every(id => favorites.includes(id));
+    ids.forEach(id => { if (favorites.includes(id) === allFav) toggleFavorite(id); });
+    refreshFavorites();
+  });
+  $("paneFavL").addEventListener("click", () => { toggleFavorite(current); refreshFavorites(); });
+  $("paneFavR").addEventListener("click", () => { toggleFavorite(currentRight); refreshFavorites(); });
   // 같은 방향으로 열려 있으면 닫고, 다른 방향으로 열려 있으면 방향만 바꾸고, 아니면 함께 띄울 사이트를 검색창에서 고른다
   function onSplitBtn(dir) {
     if (!splitDirs().includes(dir)) return;
@@ -987,13 +1019,18 @@
   $("splitColBtn").addEventListener("click", () => onSplitBtn("col"));
   $("swapBtn").addEventListener("click", () => { location.hash = `${currentRight}|${current}`; });
   $("paneCloseR").addEventListener("click", () => { location.hash = current; });
-  $("reloadBtn").addEventListener("click", () => {
-    const f = frames[current];
+  function reloadFrame(id) {
+    const f = frames[id];
     if (!f) return;
     f.dataset.loading = "1";
     f.src = f.src;
     updateLoading();
-  });
+  }
+  $("reloadBtn").addEventListener("click", () => shownIds().forEach(reloadFrame));
+  $("paneReloadL").addEventListener("click", () => reloadFrame(current));
+  $("paneReloadR").addEventListener("click", () => reloadFrame(currentRight));
+  // 왼쪽은 링크 기본 동작으로 열고, 나란히 보기면 오른쪽도 함께 연다
+  $("openBtn").addEventListener("click", () => { if (splitDir) window.open(ITEMS[currentRight].url, "_blank", "noopener"); });
   // 나란히 보기 비율 조절: 드래그 · 더블클릭은 반반 · 방향키 (방향별로 비율 저장)
   const SPLIT_VAR = { row: "--split", col: "--split-v" }, SPLIT_KEY = { row: "split", col: "split-v" };
   const splitPct = { row: 50, col: 50 };
