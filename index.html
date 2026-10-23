@@ -367,9 +367,10 @@
 <script>
   // embed:false → 사이트가 iframe 임베딩을 차단하므로 새 탭으로만 연다
   // src → iframe용 주소 (openUrl과 다를 때)
+  // sync:false → 저장 데이터 연동 스크립트를 쓰지 않음 (로그인 플랫폼·커뮤니티 글·구글 시트처럼 직접 접속이 잦고 저장 데이터가 큰 사이트)
   const CATEGORIES = [
     { name: "공식", items: [
-      { id: "shiftypad", name: "시프티패드", desc: "블라블라링크 · 내 계정 게임 데이터 (로그인 필요)", url: "https://www.blablalink.com/shiftyspad/home" },
+      { id: "shiftypad", name: "시프티패드", desc: "블라블라링크 · 내 계정 게임 데이터 (로그인 필요)", url: "https://www.blablalink.com/shiftyspad/home", sync: false },
     ]},
     { name: "딜량계산기", items: [
       { id: "dildoro", name: "딜도로", url: "https://dildoro.com/", embed: false },
@@ -379,7 +380,7 @@
     ]},
     { name: "유레", items: [
       { id: "ur-calc", name: "유레 효율계산기", url: "https://msprivaty.com/" },
-      { id: "ur-sheet", name: "유레 결산 시트", url: "https://arca.live/b/nikketgv/161405505" },
+      { id: "ur-sheet", name: "유레 결산 시트", url: "https://arca.live/b/nikketgv/161405505", sync: false },
       { id: "ur-autosync", name: "결산 시트 자동 입력 툴", url: "https://ssissun.github.io/nikke-raid-autosync-spa/" },
     ]},
     { name: "오버로드", items: [
@@ -399,15 +400,15 @@
     { name: "스토리 보는 순서", items: [
       { id: "story-ssissun", name: "스토리 순서 (storyline)", url: "https://ssissun.github.io/nikke-storyline" },
       { id: "story-github", name: "스토리 순서 (nikke-story)", url: "https://nikke-story.github.io/" },
-      { id: "story-dc", name: "스토리 순서 (디시 뉴비 정리)", url: "https://gall.dcinside.com/mgallery/board/view/?id=gov&no=4053990" },
+      { id: "story-dc", name: "스토리 순서 (디시 뉴비 정리)", url: "https://gall.dcinside.com/mgallery/board/view/?id=gov&no=4053990", sync: false },
     ]},
     { name: "육성", items: [
-      { id: "growth", name: "니케 육성 정리", url: "https://arca.live/b/nikketgv/125575794" },
+      { id: "growth", name: "니케 육성 정리", url: "https://arca.live/b/nikketgv/125575794", sync: false },
     ]},
     { name: "패키지", items: [
       { id: "package", name: "패키지 효율표 시트",
         url: "https://docs.google.com/spreadsheets/d/1qUSwYnpDtWAD_aq_4L6dC6py2vM19WtLed2AGKSdIPk/edit?gid=2059216737#gid=2059216737",
-        src: "https://docs.google.com/spreadsheets/d/1qUSwYnpDtWAD_aq_4L6dC6py2vM19WtLed2AGKSdIPk/htmlview?gid=2059216737" },
+        src: "https://docs.google.com/spreadsheets/d/1qUSwYnpDtWAD_aq_4L6dC6py2vM19WtLed2AGKSdIPk/htmlview?gid=2059216737", sync: false },
     ]},
   ];
 
@@ -550,6 +551,7 @@
       const f = document.createElement("iframe");
       f.allow = "fullscreen; clipboard-read; clipboard-write";
       f.referrerPolicy = "strict-origin-when-cross-origin";
+      if (item.sync !== false) f.name = "nikke-hub-sync"; // 저장 데이터 연동 스크립트가 이 이름으로 포털 안인지 알아본다
       f.dataset.loading = "1";
       f.addEventListener("load", () => { delete f.dataset.loading; updateLoading(); });
       f.src = item.src || item.url;

@@ -1,16 +1,9 @@
 // ==UserScript==
 // @name         NIKKE Portal 저장 데이터 연동
 // @namespace    https://ssissun.github.io/nikke-hub/
-// @version      1.1.0
-// @description  NIKKE Portal 안에서 연 사이트가 원래 사이트에 직접 들어갔을 때와 같은 저장 데이터(localStorage)를 쓰게 맞춥니다
-// @match        https://*.soloraidhistory.vercel.app/*
-// @match        https://*.msprivaty.com/*
-// @match        https://*.syuen.love/*
-// @match        https://*.nikke-deck.com/*
-// @match        https://*.nikke.top/*
-// @match        https://*.nikke-arena.netlify.app/*
-// @match        https://*.nikke-db.pages.dev/*
-// @match        https://*.nikke-story.github.io/*
+// @version      2.0.0
+// @description  NIKKE Portal 같은 모음 페이지 안에서 연 사이트가 원래 사이트에 직접 들어갔을 때와 같은 저장 데이터(localStorage)를 쓰게 맞춥니다
+// @match        *://*/*
 // @run-at       document-start
 // @grant        GM_getValue
 // @grant        GM_setValue
@@ -22,8 +15,10 @@
 (() => {
   "use strict";
 
-  const HUB_ORIGIN = "https://ssissun.github.io";
-  const HUB_FLAG = "nikke-hub-sync:in-hub";
+  const HUB_NAME = "nikke-hub-sync"; // 모음 페이지가 연동할 iframe에 붙이는 이름
+  const PORTAL_ORIGIN = "https://ssissun.github.io";
+  const HUB_FLAG = "nikke-hub-sync:hub";
+  const K_ORIGINS = "origins"; // 모음 페이지 안에서 열린 적 있는 사이트 = 직접 접속 시 연동할 사이트
   const SKIP_KEY = /token|auth|session|jwt|credential|password|secret/i; // 로그인 정보로 보이는 키는 옮기지 않는다
   const POLL_MS = 2000;
   const MAX_BACKUPS = 20;
@@ -59,22 +54,36 @@
     "https://nikke-deck.com": { "saved-decks": mergeById },
   };
 
-  function detectContext() {
-    if (window.top === window) return "direct";
+  const origin = location.origin;
+
+  // ancestorOrigins가 없는 브라우저(Firefox)는 처음 열릴 때의 referrer로 판별
+  function topOrigin() {
     const anc = location.ancestorOrigins;
-    if (anc && anc.length) return anc[anc.length - 1] === HUB_ORIGIN ? "hub" : null;
-    // ancestorOrigins가 없는 브라우저(Firefox): 처음 열릴 때 referrer로 판별하고 iframe 안에서 기억
+    if (anc && anc.length) return anc[anc.length - 1];
+    try { return new URL(document.referrer).origin; } catch { return null; }
+  }
+
+  function detectContext() {
+    if (window.top === window) {
+      const known = GM_getValue(K_ORIGINS, []).includes(origin) || GM_getValue(`shared:${origin}`) !== undefined;
+      return known ? "direct" : null;
+    }
+    // 사이트가 window.name을 바꿔도 이 iframe 안에서는 처음 판별한 모음 페이지를 기억
+    let hub = null;
     try {
-      if (document.referrer.startsWith(HUB_ORIGIN + "/")) sessionStorage.setItem(HUB_FLAG, "1");
-      return sessionStorage.getItem(HUB_FLAG) === "1" ? "hub" : null;
-    } catch { return null; }
+      hub = sessionStorage.getItem(HUB_FLAG);
+      if (!hub && window.name === HUB_NAME) { hub = topOrigin(); if (hub) sessionStorage.setItem(HUB_FLAG, hub); }
+    } catch { hub = window.name === HUB_NAME ? topOrigin() : null; }
+    if (!hub || hub === origin) return null; // 같은 출처끼리는 저장소가 같아서 맞출 것이 없다
+    const list = GM_getValue(K_ORIGINS, []);
+    if (!list.includes(origin)) GM_setValue(K_ORIGINS, [...list, origin]);
+    return hub === PORTAL_ORIGIN ? "hub" : `hub:${hub}`; // 포털은 1.x와 같은 키를 써서 기존 연동 상태를 잇는다
   }
 
   const ctx = detectContext();
   if (!ctx) return;
   try { localStorage.length; } catch { return; }
 
-  const origin = location.origin;
   const K_SHARED = `shared:${origin}`;
   const K_BASE = `base:${origin}:${ctx}`;
   const K_BACKUP = `backup:${origin}`;
@@ -118,7 +127,7 @@
 
     const shared = GM_getValue(K_SHARED);
     if (!shared) {
-      // 원본은 직접 접속한 쪽. 포털은 원본이 올라오기 전까지 아무것도 올리지 않는다
+      // 원본은 직접 접속한 쪽. 모음 페이지는 원본이 올라오기 전까지 아무것도 올리지 않는다
       if (ctx === "direct") { GM_setValue(K_SHARED, local); GM_setValue(K_BASE, local); }
       lastSynced = localJson;
       return;
@@ -130,7 +139,7 @@
     if (!base && !atLoad) return; // 처음 합류는 페이지를 새로 열 때만
     const joining = !base;
     const preferLocal = !joining && ctx === "direct"; // 충돌 시 직접 접속 쪽 값을 남긴다
-    const lostFrom = preferLocal ? "hub" : ctx;
+    const lostFrom = preferLocal ? "shared" : ctx;
 
     const delta = {}, lost = {};
     for (const k of new Set([...Object.keys(local), ...Object.keys(shared), ...Object.keys(base || {})])) {
@@ -163,13 +172,14 @@
   }
 
   const REASONS = { join: "첫 연동", conflict: "양쪽 동시 수정", restore: "복원 전 값" };
-  const FROM = { hub: "포털", direct: "직접 접속" };
+  const FROM = { hub: "포털", direct: "직접 접속", shared: "모음 페이지" };
+  const fromLabel = from => FROM[from] || from.replace(/^hub:https?:\/\//, "");
 
   function restoreBackup() {
     const list = GM_getValue(K_BACKUP, []);
     if (!list.length) { alert("이 사이트에 저장된 백업이 없습니다."); return; }
     const lines = list.map((b, i) =>
-      `${i + 1}. ${b.at.slice(0, 16).replace("T", " ")} · ${FROM[b.from]} · ${REASONS[b.reason]} · ${Object.keys(b.data).join(", ")}`);
+      `${i + 1}. ${b.at.slice(0, 16).replace("T", " ")} · ${fromLabel(b.from)} · ${REASONS[b.reason]} · ${Object.keys(b.data).join(", ")}`);
     const pick = list[Number(prompt(`복원할 백업 번호를 입력하세요.\n\n${lines.join("\n")}`)) - 1];
     if (!pick) return;
     if (!confirm("백업한 값을 지금 데이터에 되살립니다. 덮어써지는 지금 값은 새 백업으로 남깁니다. 계속할까요?")) return;
