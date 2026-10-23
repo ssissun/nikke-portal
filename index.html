@@ -335,6 +335,7 @@
   .dialog .check { display: flex; align-items: center; gap: 8px; color: var(--text); }
   .dialog .check small { color: var(--muted); }
   .dialog .note, .dialog .error { margin: 0 0 14px; font-size: 12px; color: var(--muted); }
+  .dialog .field-hint { display: block; margin-top: 4px; font-size: 12px; }
   .dialog .error { color: var(--accent); }
   .dialog .actions { display: flex; justify-content: flex-end; gap: 8px; }
   .icon-btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
@@ -434,7 +435,8 @@
 <dialog class="dialog" id="addDialog" aria-labelledby="addTitle">
   <form id="addForm">
     <h2 id="addTitle">내 사이트 추가</h2>
-    <label>이름<input id="siteName" required maxlength="40" autocomplete="off" placeholder="예: 내 계산기"></label>
+    <label>이름<input id="siteName" required maxlength="40" autocomplete="off" placeholder="예: 내 계산기"><span class="field-hint">메뉴에는 13자 정도까지 보입니다</span></label>
+    <label>하단 탭 이름 <small>(선택)</small><input id="siteShort" maxlength="10" autocomplete="off" placeholder="비우면 이름 앞부분"><span class="field-hint">모바일 하단 탭에는 4자 정도까지 보입니다</span></label>
     <label>주소<input id="siteUrl" required inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://example.com"></label>
     <label class="check"><input id="siteNewTab" type="checkbox">새 탭으로 열기 <small>(이 화면 안에 안 뜨는 사이트)</small></label>
     <p class="error" id="addError" hidden>주소 형식이 올바르지 않습니다.</p>
@@ -580,7 +582,7 @@
     ? `href="#${item.id}" data-id="${item.id}"`
     : `href="${esc(item.url)}" target="_blank" rel="noopener" data-id="${item.id}"`;
   const siteIcon = (item, size) => icon(item.icon || "link", size);
-  const navLink = item => `<a ${linkAttrs(item)}>${siteIcon(item, 16)}<span class="nm">${esc(item.name)}</span>${badge(item)}</a>`;
+  const navLink = item => `<a ${linkAttrs(item)} title="${esc(item.name)}">${siteIcon(item, 16)}<span class="nm">${esc(item.name)}</span>${badge(item)}</a>`;
   const card = item => `<a class="card" ${linkAttrs(item)}><span class="ico">${siteIcon(item, 18)}</span><span class="txt"><b>${esc(item.name)}${badge(item)}</b><span class="desc">${esc(item.desc || new URL(item.url).hostname)}</span></span></a>`;
 
   const favToggle = item => {
@@ -633,12 +635,12 @@
     store.set("recent", recent);
     renderNav();
   }
-  function addCustomSite(name, rawUrl, newTab) {
+  function addCustomSite(name, short, rawUrl, newTab) {
     let parsed;
     try { parsed = new URL(/^https?:\/\//i.test(rawUrl) ? rawUrl : "https://" + rawUrl); } catch { return null; }
     if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(parsed.hostname)) return null;
     const url = parsed.href;
-    const item = { id: "my-" + Date.now().toString(36), name, url };
+    const item = { id: "my-" + Date.now().toString(36), name, ...(short ? { short } : {}), url };
     if (newTab) item.embed = false;
     customSites = [...customSites, item];
     saveCustom();
@@ -659,7 +661,7 @@
   }
   $("addForm").addEventListener("submit", e => {
     e.preventDefault();
-    const item = addCustomSite($("siteName").value.trim(), $("siteUrl").value.trim(), $("siteNewTab").checked);
+    const item = addCustomSite($("siteName").value.trim(), $("siteShort").value.trim(), $("siteUrl").value.trim(), $("siteNewTab").checked);
     if (!item) { $("addError").hidden = false; return; }
     $("addDialog").close();
     if (embeddable(item)) go(item.id);
