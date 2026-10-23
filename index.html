@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>NIKKE Portal</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
 <script>
   // 테마·사이드바 접힘 상태를 첫 렌더 전에 적용 (깜빡임 방지). 저장된 테마가 없으면 시스템 설정을 따른다
   try {
@@ -14,31 +15,37 @@
   } catch {}
 </script>
 <style>
+  /* 색은 NIKKE 스토리 감상 순서(nikke-storyline)와 같은 팔레트: 다크 = 심해·우주, 라이트 = 측량 지도 */
   :root {
-    --bg: #0f1117;
-    --panel: #171a23;
-    --panel-2: #1f2330;
-    --line: #2a2f3d;
-    --text: #e6e8ee;
-    --muted: #8b91a3;
-    --accent: #ff4f6d;
-    --warn: #f0b429;
-    --star: #ffc94d;
+    --bg: #09152B;
+    --panel: #0E1D39;
+    --panel-2: #172B4D;
+    --card-border: #2C4A7C;
+    --line: rgba(234, 241, 250, .12);
+    --text: #EAF1FA;
+    --muted: #8A9CBC;
+    --accent: #5DC2F0;
+    --on-accent: #06101F;
+    --warn: #E2A555;
+    --star: #F2C674;
+    --serif-en: "Iowan Old Style", "Charter", "Georgia", serif;
     --sidebar-w: 264px;
     --topbar-h: 52px;
     --pane-head-h: 36px;
     color-scheme: dark;
   }
   :root[data-theme="light"] {
-    --bg: #f4f5f9;
-    --panel: #ffffff;
-    --panel-2: #eceef4;
-    --line: #dcdfe8;
-    --text: #1d2130;
-    --muted: #697084;
-    --accent: #e8435f;
-    --warn: #b7791f;
-    --star: #d99a00;
+    --bg: #E3E9EC;
+    --panel: #F8FAFB;
+    --panel-2: #EDF3F7;
+    --card-border: rgba(19, 35, 63, .14);
+    --line: rgba(19, 35, 63, .14);
+    --text: #13233F;
+    --muted: #5D6C84;
+    --accent: #0A74B8;
+    --on-accent: #FFFFFF;
+    --warn: #A86A00;
+    --star: #B97A06;
     color-scheme: light;
   }
   * { box-sizing: border-box; }
@@ -50,6 +57,36 @@
     font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
     font-size: 14px;
     overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  /* 홈 배경: 빛 번짐 + 64px 격자 + 별 (라이트는 별 대신 측량 십자·등고선) */
+  .page {
+    background-color: var(--bg);
+    background-image:
+      radial-gradient(ellipse at 18% 0%, rgba(93, 194, 240, .16), transparent 55%),
+      radial-gradient(ellipse at 85% 30%, rgba(181, 148, 232, .10), transparent 50%),
+      radial-gradient(ellipse at 50% 100%, rgba(79, 207, 174, .08), transparent 60%),
+      linear-gradient(rgba(93, 194, 240, .05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(93, 194, 240, .05) 1px, transparent 1px),
+      radial-gradient(circle at 12% 18%, rgba(234, 241, 250, .55) .5px, transparent 1px),
+      radial-gradient(circle at 78% 42%, rgba(234, 241, 250, .45) .5px, transparent 1px),
+      radial-gradient(circle at 32% 72%, rgba(234, 241, 250, .45) .5px, transparent 1px),
+      radial-gradient(circle at 88% 88%, rgba(234, 241, 250, .50) .5px, transparent 1px),
+      radial-gradient(circle at 55% 15%, rgba(234, 241, 250, .40) .5px, transparent 1px),
+      radial-gradient(circle at 8% 60%, rgba(234, 241, 250, .45) .5px, transparent 1px);
+    background-size: 100% 100%, 100% 100%, 100% 100%, 64px 64px, 64px 64px,
+                     220px 220px, 340px 340px, 280px 280px, 400px 400px, 260px 260px, 360px 360px;
+  }
+  :root[data-theme="light"] .page {
+    background-image:
+      radial-gradient(ellipse at 18% 0%, rgba(10, 116, 184, .12), transparent 55%),
+      radial-gradient(ellipse at 85% 30%, rgba(116, 68, 201, .07), transparent 50%),
+      radial-gradient(ellipse at 50% 100%, rgba(11, 138, 107, .07), transparent 60%),
+      linear-gradient(rgba(19, 35, 63, .045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(19, 35, 63, .045) 1px, transparent 1px),
+      url("assets/bg-survey.svg"),
+      url("assets/bg-topo.svg");
+    background-size: 100% 100%, 100% 100%, 100% 100%, 64px 64px, 64px 64px, 640px 640px, 720px 720px;
   }
   a { color: inherit; }
   button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
@@ -73,7 +110,8 @@
     font-weight: 700; letter-spacing: .02em;
     text-decoration: none;
   }
-  .brand .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
+  .brand { font-size: 16px; }
+  .brand .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent); }
   .nav {
     overflow-y: auto; padding: 8px 8px 24px; flex: 1;
     scrollbar-width: thin; scrollbar-color: var(--line) transparent;
@@ -94,15 +132,15 @@
   .nav a .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .nav a svg { flex-shrink: 0; color: var(--muted); }
   .nav a:hover { background: var(--panel-2); }
-  .nav a.active { background: var(--accent); color: #fff; }
-  .nav a.active svg { color: #fff; }
+  .nav a.active { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+  .nav a.active svg { color: var(--on-accent); }
   .nav .quick { border-bottom: 1px solid var(--line); padding-bottom: 8px; }
   .nav .quick:empty { display: none; }
   .badge {
     font-size: 10px; padding: 1px 6px; border-radius: 999px;
     border: 1px solid currentColor; color: var(--warn); white-space: nowrap;
   }
-  .nav a.active .badge { color: #fff; }
+  .nav a.active .badge { color: var(--on-accent); }
 
   /* Main */
   .main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
@@ -179,28 +217,43 @@
   .viewport.split.col #paneHeadR { left: 0; top: calc(var(--split-v, 50%) + 3px); }
 
   /* Home / blocked panels */
-  .page { flex: 1; overflow-y: auto; padding: 24px; background: var(--bg); }
-  .page h1 { margin: 0 0 4px; font-size: 22px; }
-  .page .lead { margin: 0 0 24px; color: var(--muted); }
+  .page { flex: 1; overflow-y: auto; padding: 24px; }
+  /* 홈 머리: storyline masthead처럼 위 시안 선 + 영문 세리프 + 빛나는 강조 */
+  .masthead { border-top: 2px solid var(--accent); border-bottom: 1px solid var(--line); padding: 20px 0 16px; margin-bottom: 24px; }
+  .page h1 { margin: 0 0 8px; font-size: 34px; font-weight: 700; line-height: 1.1; letter-spacing: -.01em; }
+  .en { font-family: var(--serif-en); }
+  .accent { color: var(--accent); }
+  h1 .accent { text-shadow: 0 0 24px rgba(93, 194, 240, .44), 0 0 8px rgba(93, 194, 240, .32); }
+  :root[data-theme="light"] h1 .accent { text-shadow: none; }
+  .page .lead { margin: 0; color: var(--muted); }
   .page .lead kbd { padding: 1px 6px; border: 1px solid var(--line); border-radius: 4px; font: 12px inherit; }
   .group { margin-bottom: 24px; }
   .group h2 { margin: 0 0 10px; font-size: 13px; color: var(--muted); font-weight: 600; }
   .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
   .card {
-    display: flex; align-items: flex-start; gap: 12px; padding: 14px; border-radius: 10px; text-decoration: none;
-    background: var(--panel); border: 1px solid var(--line);
+    display: flex; align-items: flex-start; gap: 12px; padding: 14px; border-radius: 4px; text-decoration: none;
+    background: linear-gradient(135deg, rgba(93, 194, 240, .06), transparent 50%), var(--panel-2);
+    border: 1px solid var(--card-border);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, .45), 0 0 0 1px rgba(93, 194, 240, .064) inset, 0 0 24px rgba(93, 194, 240, .04);
+    transition: border-color .28s ease, transform .28s ease, box-shadow .28s ease;
   }
-  .card:hover { border-color: var(--accent); }
+  .card:hover {
+    border-color: var(--accent); transform: translateY(-2px);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, .5), 0 0 0 1px rgba(93, 194, 240, .12) inset, 0 0 28px rgba(93, 194, 240, .10);
+  }
+  :root[data-theme="light"] .card { background: var(--panel); box-shadow: 0 1px 0 rgba(19, 35, 63, .05), 0 14px 28px -16px rgba(10, 116, 184, .55); }
+  :root[data-theme="light"] .card:hover { box-shadow: 0 1px 0 rgba(19, 35, 63, .05), 0 18px 30px -14px rgba(10, 116, 184, .6); }
   .card .ico {
-    display: grid; place-items: center; flex-shrink: 0; width: 34px; height: 34px; border-radius: 9px;
-    background: var(--panel-2); color: var(--accent);
+    display: grid; place-items: center; flex-shrink: 0; width: 34px; height: 34px; border-radius: 4px;
+    background: rgba(93, 194, 240, .12); color: var(--accent);
   }
+  :root[data-theme="light"] .card .ico { background: rgba(10, 116, 184, .10); }
   .card .txt { flex: 1; min-width: 0; }
   .card span.desc { display: block; }
   .card b { display: flex; justify-content: space-between; gap: 6px; margin-bottom: 4px; }
   .card span.desc { color: var(--muted); font-size: 12px; }
   .guide {
-    padding: 14px 16px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line);
+    padding: 14px 16px; border-radius: 4px; background: var(--panel-2); border: 1px solid var(--card-border); border-left: 3px solid var(--accent);
     color: var(--muted); font-size: 13px; line-height: 1.7;
   }
   .guide p { margin: 0; }
@@ -211,7 +264,7 @@
     max-width: 480px; margin: 12vh auto 0; text-align: center;
   }
   .notice p { color: var(--muted); line-height: 1.6; }
-  .notice .icon-btn { height: 42px; padding: 0 18px; background: var(--accent); border-color: var(--accent); color: #fff; }
+  .notice .icon-btn { height: 42px; padding: 0 18px; background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 
   /* Mobile favorites bar */
   .tabbar { display: none; }
@@ -277,7 +330,7 @@
   .dialog .note, .dialog .error { margin: 0 0 14px; font-size: 12px; color: var(--muted); }
   .dialog .error { color: var(--accent); }
   .dialog .actions { display: flex; justify-content: flex-end; gap: 8px; }
-  .icon-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .icon-btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 
   .scrim { display: none; }
 
@@ -313,7 +366,7 @@
       text-decoration: none; font-size: 11.5px; line-height: 1.2; color: var(--text);
     }
     .tabbar a span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .tabbar a.active { background: var(--accent); color: #fff; font-weight: 600; }
+    .tabbar a.active { background: var(--accent); color: var(--on-accent); font-weight: 600; }
   }
   @media (max-width: 380px) {
     .cards { grid-template-columns: 1fr; }
@@ -323,7 +376,7 @@
 <body>
 <div class="app" id="app">
   <aside class="sidebar" id="sidebar">
-    <a class="brand" href="#"><span class="dot"></span>NIKKE Portal</a>
+    <a class="brand" href="#"><span class="dot"></span><span><span class="en">NIKKE</span> <span class="accent">Portal</span></span></a>
     <nav class="nav" id="nav">
       <div class="quick" id="navQuick"></div>
       <div id="navCats"></div>
@@ -535,8 +588,10 @@
   function renderHome() {
     const favItems = favorites.map(id => ITEMS[id]);
     $("home").innerHTML = `
-      <h1>NIKKE Portal</h1>
+      <header class="masthead">
+      <h1><span class="en">NIKKE</span> <span class="accent">Portal</span></h1>
       <p class="lead">니케 유용한 사이트 모음 — 대부분은 이 화면 안에서 바로 열립니다. <kbd>Ctrl</kbd>+<kbd>K</kbd>로 검색.</p>
+      </header>
       ${favItems.length ? homeGroup("★ 즐겨찾기", favItems) : ""}
       ${CATEGORIES.map(c => homeGroup(c.name, c.items)).join("")}
       <div class="group"><h2>${CUSTOM_CATEGORY}</h2><div class="cards">
