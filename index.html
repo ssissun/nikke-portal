@@ -367,6 +367,18 @@
   .dialog .field-hint { display: block; margin-top: 4px; font-size: 12px; }
   .dialog .error { color: var(--accent); }
   .dialog .actions { display: flex; justify-content: flex-end; gap: 8px; }
+  .dialog .share { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 14px; color: var(--text); }
+  .dialog .share input {
+    appearance: none; flex: none; position: relative; width: 36px; height: 20px; margin: 0;
+    border-radius: 999px; background: var(--muted); cursor: pointer; transition: background .2s;
+  }
+  .dialog .share input::after {
+    content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
+    border-radius: 50%; background: #fff; transition: transform .2s;
+  }
+  .dialog .share input:checked { background: var(--accent); }
+  .dialog .share input:checked::after { transform: translateX(16px); }
+  .dialog .share input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .icon-btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 
   .scrim { display: none; }
@@ -411,7 +423,8 @@
 </style>
 <!--
   방문 분석(Umami). nikke-storyline과 같은 Website를 공유하고 data-tag로 구분한다.
-  쿠키·식별자 없음, Do Not Track 존중, URL 쿼리·해시 제외, 페이지 조회만 센다.
+  쿠키·식별자 없음, Do Not Track 존중, URL 쿼리·해시 제외. 페이지 조회와 함께
+  사이트 열기·즐겨찾기·나란히 보기·내 사이트 추가/삭제 이벤트를 센다 (track() 참고).
 -->
 <script defer src="https://cloud.umami.is/script.js"
   data-website-id="75cae5c5-1727-486b-b78d-99de89a67d3d"
@@ -443,7 +456,7 @@
     <a class="brand" href="#"><span class="dot"></span><span><span class="en">NIKKE</span> <span class="accent">Portal</span></span></a>
     <nav class="nav" id="nav">
       <div class="quick" id="navQuick"></div>
-      <div id="navCats"></div>
+      <div id="navCats" data-from="nav"></div>
     </nav>
   </aside>
   <div class="scrim" id="scrim"></div>
@@ -496,7 +509,7 @@
       </div>
       <div class="hint" id="hint" hidden><span id="hintText"></span><button class="icon-btn" id="hintNever">다시 보지 않기</button><button class="icon-btn" id="hintClose">닫기</button></div>
     </div>
-    <nav class="tabbar" id="tabbar"></nav>
+    <nav class="tabbar" id="tabbar" data-from="tab"></nav>
   </main>
 </div>
 
@@ -509,6 +522,7 @@
     <label class="check"><input id="siteNewTab" type="checkbox">새 탭으로 열기 <small>(이 화면 안에 안 뜨는 사이트)</small></label>
     <p class="error" id="addError" hidden>주소 형식이 올바르지 않습니다.</p>
     <p class="note">이 브라우저에만 저장됩니다.</p>
+    <label class="share">사이트 개선을 위해 이 사이트의 이름·주소 수집 허용<input id="siteShare" type="checkbox" role="switch" checked></label>
     <div class="actions">
       <button type="button" class="icon-btn" id="addCancel">취소</button>
       <button type="submit" class="icon-btn primary">추가</button>
@@ -646,9 +660,28 @@
     store.set("recent", recent);
   }
   function toggleFavorite(id) {
-    favorites = favorites.includes(id) ? favorites.filter(f => f !== id) : [...favorites, id];
+    const on = !favorites.includes(id);
+    favorites = on ? [...favorites, id] : favorites.filter(f => f !== id);
     store.set("favorites", favorites);
+    track("favorite", { ...siteProps(ITEMS[id]), on: on ? "on" : "off" });
   }
+
+  // ---- 방문 분석 이벤트 (Umami) ----
+  // open: 어떤 사이트를 어디서(from) 여는지 · favorite · split · custom-add/remove.
+  // 내 사이트는 기본 목록에 넣을 후보를 찾으려고, 추가 창에서 수집을 허용한 사이트(share)만 이름·주소까지 보낸다.
+  // Umami 스크립트(defer)가 늦게 뜨면 그 전 이벤트는 모아 두었다가 로드되면 보낸다
+  const pendingEvents = [];
+  function track(name, data) {
+    if (window.umami) window.umami.track(name, data);
+    else pendingEvents.push([name, data]);
+  }
+  document.querySelector("script[data-website-id]")?.addEventListener("load", () => {
+    pendingEvents.splice(0).forEach(([name, data]) => window.umami?.track(name, data));
+  });
+  const siteProps = item => {
+    if (item.category !== CUSTOM_CATEGORY) return { site: item.id };
+    return item.share ? { site: "custom", name: item.name.slice(0, 100), url: item.url.slice(0, 500) } : { site: "custom" };
+  };
 
   // ---- 렌더링 조각 ----
   const badge = item => embeddable(item) ? "" : '<span class="badge">새 탭</span>';
@@ -674,7 +707,7 @@
   }
   renderNav();
 
-  const homeGroup = (title, items) => `<div class="group"><h2>${title}</h2><div class="cards">${items.map(card).join("")}</div></div>`;
+  const homeGroup = (title, items, from = "home") => `<div class="group" data-from="${from}"><h2>${title}</h2><div class="cards">${items.map(card).join("")}</div></div>`;
   function renderHome() {
     const favItems = favorites.map(id => ITEMS[id]);
     $("home").innerHTML = `
@@ -682,9 +715,9 @@
       <h1><span class="en">NIKKE</span> <span class="accent">Portal</span></h1>
       <p class="lead">니케 유용한 사이트 모음 — 대부분은 이 화면 안에서 바로 열립니다. <kbd>Ctrl</kbd>+<kbd>K</kbd>로 검색.</p>
       </header>
-      ${favItems.length ? homeGroup("★ 즐겨찾기", favItems) : ""}
+      ${favItems.length ? homeGroup("★ 즐겨찾기", favItems, "home-fav") : ""}
       ${CATEGORIES.map(c => homeGroup(c.name, c.items)).join("")}
-      <div class="group"><h2>${CUSTOM_CATEGORY}</h2><div class="cards">
+      <div class="group" data-from="home"><h2>${CUSTOM_CATEGORY}</h2><div class="cards">
         ${customSites.map(card).join("")}
         <button class="card add-card" data-add-site><span class="ico">${icon("plus", 18)}</span><span class="txt"><b>사이트 추가</b><span class="desc">주소를 넣으면 이 브라우저의 목록에 추가됩니다</span></span></button>
       </div></div>
@@ -709,13 +742,14 @@
     store.set("recent", recent);
     renderNav();
   }
-  function addCustomSite(name, short, rawUrl, newTab) {
+  function addCustomSite(name, short, rawUrl, newTab, share) {
     let parsed;
     try { parsed = new URL(/^https?:\/\//i.test(rawUrl) ? rawUrl : "https://" + rawUrl); } catch { return null; }
     if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(parsed.hostname)) return null;
     const url = parsed.href;
     const item = { id: "my-" + Date.now().toString(36), name, ...(short ? { short } : {}), url };
     if (newTab) item.embed = false;
+    if (share) item.share = true;
     customSites = [...customSites, item];
     saveCustom();
     return item;
@@ -730,13 +764,16 @@
   function openAddDialog() {
     closeNav();
     $("addForm").reset();
+    $("siteShare").checked = store.get("share-custom", true); // 수집 허용 여부는 지난번 선택을 기억한다
     $("addError").hidden = true;
     $("addDialog").showModal();
   }
   $("addForm").addEventListener("submit", e => {
     e.preventDefault();
-    const item = addCustomSite($("siteName").value.trim(), $("siteShort").value.trim(), $("siteUrl").value.trim(), $("siteNewTab").checked);
+    store.set("share-custom", $("siteShare").checked);
+    const item = addCustomSite($("siteName").value.trim(), $("siteShort").value.trim(), $("siteUrl").value.trim(), $("siteNewTab").checked, $("siteShare").checked);
     if (!item) { $("addError").hidden = false; return; }
+    track("custom-add", siteProps(ITEMS[item.id]));
     $("addDialog").close();
     if (embeddable(item)) go(item.id);
     else render();
@@ -747,8 +784,8 @@
     const favItems = favorites.map(id => ITEMS[id]);
     const recentItems = recent.filter(id => id !== current && !favorites.includes(id)).slice(0, 4).map(id => ITEMS[id]);
     $("navQuick").innerHTML =
-      (favItems.length ? `<h3>★ 즐겨찾기</h3>${favItems.map(navRow).join("")}` : "") +
-      (recentItems.length ? `<h3>최근</h3>${recentItems.map(navRow).join("")}` : "");
+      (favItems.length ? `<div data-from="nav-fav"><h3>★ 즐겨찾기</h3>${favItems.map(navRow).join("")}</div>` : "") +
+      (recentItems.length ? `<div data-from="nav-recent"><h3>최근</h3>${recentItems.map(navRow).join("")}</div>` : "");
     document.querySelectorAll("#navCats [data-fav]").forEach(b => {
       const on = favorites.includes(b.dataset.fav), name = ITEMS[b.dataset.fav].name;
       b.classList.toggle("on", on);
@@ -969,7 +1006,13 @@
     const item = paletteResults[n];
     if (!item) return;
     closePalette();
-    if (paletteMode === "split") { location.hash = `${current}|${item.id}`; return; }
+    if (paletteMode === "split") {
+      track("open", { ...siteProps(item), from: "split" });
+      track("split", { dir: store.get("split-dir", "row") });
+      location.hash = `${current}|${item.id}`;
+      return;
+    }
+    track("open", { ...siteProps(item), from: "search" });
     if (!embeddable(item)) { addRecent(item.id); renderQuick(); window.open(item.url, "_blank", "noopener"); return; }
     go(item.id);
   }
@@ -1024,12 +1067,16 @@
     const del = e.target.closest("[data-del]");
     if (del) {
       const item = ITEMS[del.dataset.del];
-      if (item && confirm(`'${item.name}'을(를) 내 사이트에서 삭제할까요?`)) removeCustomSite(item.id);
+      if (item && confirm(`'${item.name}'을(를) 내 사이트에서 삭제할까요?`)) {
+        track("custom-remove", siteProps(item));
+        removeCustomSite(item.id);
+      }
       return;
     }
     const a = e.target.closest("a[data-id]");
     if (!a || e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return;
     const item = ITEMS[a.dataset.id];
+    track("open", { ...siteProps(item), from: a.closest("[data-from]")?.dataset.from || "other" });
     closeNav();
     if (!embeddable(item)) { addRecent(item.id); renderQuick(); return; }
     e.preventDefault();
@@ -1174,8 +1221,10 @@
 
   // 주소에 사이트가 지정되지 않았으면 마지막에 보던 화면으로 시작
   const last = store.get("last", null);
+  const initialFrom = location.hash.length > 1 ? "link" : last ? "restore" : null; // link: 사이트가 지정된 주소로 들어옴
   if (!location.hash && last) history.replaceState(null, "", "#" + last);
   render();
+  if (initialFrom && current) track("open", { ...siteProps(ITEMS[current]), from: initialFrom });
   lastDirs = splitDirs().join();
 </script>
 </body>
