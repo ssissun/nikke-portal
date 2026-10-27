@@ -48,7 +48,7 @@
     --serif-en: "Iowan Old Style", "Charter", "Georgia", serif;
     --sidebar-w: 264px;
     --topbar-h: 52px;
-    --pane-head-h: 36px;
+    --pane-head-h: 38px;
     color-scheme: dark;
   }
   :root[data-theme="light"] {
@@ -213,7 +213,7 @@
   .viewport.resizing iframe { pointer-events: none; }
   .pane-head {
     position: absolute; top: 0; height: var(--pane-head-h); z-index: 2;
-    display: flex; align-items: center; gap: 6px; padding: 0 6px 0 12px;
+    display: flex; align-items: center; gap: 6px; padding: 0 6px 2px 12px; /* 아래 2px: 강조 줄과 버튼 사이 여유 */
     background: var(--panel-2); font-size: 13px; font-weight: 600;
   }
   .pane-head span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -221,6 +221,19 @@
   #paneHeadL { left: 0; width: calc(var(--split, 50%) - 3px); }
   #paneHeadR { left: calc(var(--split, 50%) + 3px); right: 0; }
   .viewport:not(.split) .pane-head { display: none; }
+  /* 사이트 이동이 일어날 칸 표시: 옮길 때는 떠나는 줄이 흐려지는 동시에 도착하는 줄이 나타난다 */
+  .pane-head::after {
+    /* 사이트와 붙으면 묻히므로 제목줄 바탕을 1px 띄워 두고 번짐도 제목줄 쪽으로만 */
+    content: ""; position: absolute; left: 0; right: 0; bottom: 1px; height: 3px; pointer-events: none;
+    background: var(--accent);
+    box-shadow: 0 -2px 14px color-mix(in srgb, var(--accent) 65%, transparent);
+    opacity: 0; transition: opacity .2s ease;
+  }
+  :root[data-theme="light"] .pane-head::after { /* 밝은 바탕에선 번짐이 묻히므로 더 굵고 진하게 */
+    box-shadow: 0 -3px 18px color-mix(in srgb, var(--accent) 60%, transparent);
+  }
+  .pane-head.active::after { opacity: 1; }
+  @media (prefers-reduced-motion: reduce) { .pane-head::after { transition: none; } }
   /* 위아래 나란히 보기 */
   .viewport.split.col iframe.pane-left { left: 0; width: 100%; height: calc(var(--split-v, 50%) - 3px - var(--pane-head-h)); }
   .viewport.split.col iframe.pane-right {
@@ -829,6 +842,7 @@
 
   // ---- 라우팅: #왼쪽id 또는 #왼쪽id|오른쪽id ----
   let current = null, currentRight = null;
+  let activePane = "left"; // 나란히 보기에서 마지막으로 포커스된 칸. 사이트 이동은 이 칸을 바꾼다
 
   function parseHash() {
     const [a, b] = decodeURIComponent(location.hash.slice(1)).split("|");
@@ -839,7 +853,11 @@
   }
 
   function go(id) {
-    location.hash = currentRight && id !== currentRight ? `${id}|${currentRight}` : id;
+    if (!currentRight) { location.hash = id; return; }
+    // 이미 떠 있는 사이트를 고르면 그 칸으로 포커스만 옮긴다
+    const shownAt = id === current ? "left" : id === currentRight ? "right" : null;
+    if (shownAt) { setActivePane(shownAt); frames[id].focus(); return; }
+    location.hash = activePane === "right" ? `${current}|${id}` : `${id}|${currentRight}`;
   }
 
   // ---- 나란히 보기 방향: 좌우(row)·위아래(col). 두 칸이 각각 MIN_PANE px 이상 나오는 방향만 쓴다 ----
@@ -882,6 +900,7 @@
     $("viewport").classList.toggle("split", !!splitDir);
     $("viewport").classList.toggle("col", splitDir === "col");
     renderSplitControls(dirs);
+    setActivePane(splitDir ? activePane : "left");
 
     if (!left) {
       store.set("last", null);
@@ -970,6 +989,32 @@
   }
   addEventListener("resize", refreshSplitDirs);
 
+  // 칸 안의 사이트를 누르면 포커스가 그 iframe으로 간다. iframe 안 클릭은 이 문서에서 보이지 않으므로 포커스로 알아낸다
+  function setActivePane(pane) {
+    activePane = pane;
+    $("paneHeadL").classList.toggle("active", !!splitDir && pane === "left");
+    $("paneHeadR").classList.toggle("active", !!splitDir && pane === "right");
+  }
+  // 한 칸의 iframe에서 다른 칸의 iframe으로 바로 옮기면 이 문서에는 아무 이벤트도 오지 않으므로,
+  // 나란히 보기 중 포커스가 이 문서 밖(iframe·다른 탭·다른 앱)에 있는 동안만 주기적으로 확인한다
+  let paneTimer = null;
+  function stopPaneTimer() { clearInterval(paneTimer); paneTimer = null; }
+  function syncActivePane() {
+    if (!splitDir) { stopPaneTimer(); return; }
+    const el = document.activeElement;
+    if (el?.classList.contains("pane-left")) setActivePane("left");
+    else if (el?.classList.contains("pane-right")) setActivePane("right");
+  }
+  addEventListener("blur", () => {
+    if (!splitDir) return;
+    setTimeout(syncActivePane);
+    paneTimer ??= setInterval(syncActivePane, 300);
+  });
+  addEventListener("focus", stopPaneTimer);
+  // 칸 제목줄을 눌러도 그 칸으로. 단 바꾸기 버튼은 두 칸 공용이라 제외 (왼쪽 제목줄에 있음)
+  $("paneHeadL").addEventListener("pointerdown", e => { if (!e.target.closest("#swapBtn")) setActivePane("left"); });
+  $("paneHeadR").addEventListener("pointerdown", () => setActivePane("right"));
+
   // ---- 검색 팔레트 (Ctrl+K) ----
   let paletteMode = "go", paletteResults = [], paletteSel = 0;
 
@@ -1009,6 +1054,9 @@
     if (paletteMode === "split") {
       track("open", { ...siteProps(item), from: "split" });
       track("split", { dir: store.get("split-dir", "row") });
+      // 새로 띄운 사이트로 포커스 (render가 iframe을 만든 다음에)
+      activePane = "right";
+      addEventListener("hashchange", () => frames[item.id]?.focus(), { once: true });
       location.hash = `${current}|${item.id}`;
       return;
     }
@@ -1138,7 +1186,11 @@
   }
   $("splitRowBtn").addEventListener("click", () => onSplitBtn("row"));
   $("splitColBtn").addEventListener("click", () => onSplitBtn("col"));
-  $("swapBtn").addEventListener("click", () => { location.hash = `${currentRight}|${current}`; });
+  // 포커스된 사이트를 따라가도록 기억한 칸도 함께 바꾼다
+  $("swapBtn").addEventListener("click", () => {
+    setActivePane(activePane === "left" ? "right" : "left");
+    location.hash = `${currentRight}|${current}`;
+  });
   $("paneCloseR").addEventListener("click", () => { location.hash = current; });
   function reloadFrame(id) {
     const f = frames[id];
