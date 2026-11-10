@@ -307,6 +307,20 @@
   .viewport.split .hint[data-pane="right"] { left: calc(var(--split, 50%) + 15px); }
   .viewport.split.col .hint[data-pane="left"] { right: 12px; bottom: calc(100% - var(--split-v, 50%) + 15px); }
   .viewport.split.col .hint[data-pane="right"] { left: 12px; }
+  /* 화면 안 사이트 위에 띄우는 로그아웃 버튼 (그 사이트 칸 왼쪽 아래) */
+  .float-logout {
+    position: absolute; left: 12px; bottom: 12px; z-index: 4;
+    display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 20px; border-radius: 21px;
+    /* 블라블라링크 버튼과 같은 계열의 파란색 (테마와 무관하게 고정) */
+    background: linear-gradient(180deg, #2fb8f6, #1689e8); color: #fff; border: 0;
+    font: inherit; font-size: 15px; font-weight: 700; cursor: pointer;
+    box-shadow: 0 4px 14px rgba(22, 137, 232, .45), 0 0 0 2px rgba(255, 255, 255, .85);
+  }
+  .float-logout:hover { background: linear-gradient(180deg, #1fa8ec, #0d74d0); }
+  .float-logout:disabled { opacity: .6; cursor: progress; }
+  .viewport.split .float-logout[data-pane="right"] { left: calc(var(--split, 50%) + 15px); }
+  .viewport.split.col .float-logout[data-pane="left"] { bottom: calc(100% - var(--split-v, 50%) + 15px); }
+  .viewport.split.col .float-logout[data-pane="right"] { left: 12px; }
 
   /* Mobile favorites bar */
   .tabbar { display: none; }
@@ -521,6 +535,7 @@
         <button class="icon-btn" id="paneCloseR" title="닫기" aria-label="닫기"></button>
       </div>
       <div class="hint" id="hint" hidden><span id="hintText"></span><button class="icon-btn" id="hintNever">다시 보지 않기</button><button class="icon-btn" id="hintClose">닫기</button></div>
+      <button class="float-logout" id="logoutBtn" title="로그아웃 — 다른 계정으로 바꿀 때 누르세요. 사이트 안의 로그아웃 버튼은 이 화면에서 작동하지 않습니다" hidden></button>
     </div>
     <nav class="tabbar" id="tabbar" data-from="tab"></nav>
   </main>
@@ -566,6 +581,7 @@
     x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
     external: '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
     refresh: '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
+    logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/>',
     menu: '<line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/>',
     table: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M12 3v18"/>',
     zap: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
@@ -580,13 +596,16 @@
   // short → 모바일 하단 탭 이름 (없으면 name), icon → ICONS 이름 (내 사이트는 link)
   // sync:false → 저장 데이터 연동 스크립트를 쓰지 않음 (로그인 플랫폼·커뮤니티 글·구글 시트처럼 직접 접속이 잦고 저장 데이터가 큰 사이트)
   // hint → 화면 안에서 열 때 아래에 띄울 안내
+  // logout → 열기만 하면 로그아웃되는 페이지. 있으면 그 사이트 칸 왼쪽 아래에 '로그아웃' 버튼을 띄운다
   // 아카라이브는 로그인·CSRF 쿠키가 SameSite=Lax라 화면 안에서는 로그인이 안 된다
   const ARCA_HINT = "글 보기는 여기서 되지만, 아카라이브 로그인(댓글·추천)은 이 화면 안에서 안 돼요. 오른쪽 위 ↗ 새 탭으로 열어 주세요.";
   const CATEGORIES = [
     { name: "공식", items: [
       // 화면 안에서는 사이트의 언어·게임 ID 쿠키(SameSite=Lax)가 막혀 주소로 넘긴다. 언어가 없으면 ko-KR을 몰라 영어로, 게임 ID가 없으면 유니온 멤버 보기가 404
       { id: "shiftypad", name: "시프티패드", short: "시프티", icon: "gamepad", desc: "블라블라링크 · 내 계정 게임 데이터 (로그인 필요)", url: "https://www.blablalink.com/shiftyspad/home",
-        src: "https://www.blablalink.com/shiftyspad/home?lang=ko&gameid=29080", sync: false },
+        src: "https://www.blablalink.com/shiftyspad/home?lang=ko&gameid=29080", sync: false,
+        // 블라블라링크 로그아웃 응답의 쿠키 삭제에 SameSite가 없어(=Lax) 화면 안에서는 삭제가 막히고, 로그인 쿠키가 남아 원래 계정으로 다시 로그인된다
+        logout: "https://www.blablalink.com/logout" },
     ]},
     { name: "딜량계산기", items: [
       { id: "dildoro", name: "딜도로", short: "딜도로", icon: "calculator", url: "https://dildoro.com/", embed: false },
@@ -895,6 +914,9 @@
     $("viewport").hidden = !(left && embeddable(left));
     $("favBtn").hidden = $("openBtn").hidden = !left;
     $("reloadBtn").hidden = !(left && embeddable(left));
+    const acct = accountSite();
+    $("logoutBtn").hidden = !acct;
+    if (acct) $("logoutBtn").dataset.pane = acct.pane;
     $("hint").hidden = true;
     Object.values(frames).forEach(f => { f.hidden = true; f.classList.remove("pane-left", "pane-right"); });
     $("viewport").classList.toggle("split", !!splitDir);
@@ -1135,6 +1157,7 @@
   $("menuBtn").innerHTML = icon("menu", 18);
   $("favBtn").innerHTML = icon("star", 16);
   $("reloadBtn").innerHTML = icon("refresh", 15);
+  $("logoutBtn").innerHTML = icon("logout", 18) + "로그아웃";
   $("openBtn").innerHTML = icon("external", 15) + '<span class="label">새 탭</span>';
   $("paneOpenR").innerHTML = $("paneOpenL").innerHTML = icon("external", 13);
   $("paneFavL").innerHTML = $("paneFavR").innerHTML = icon("star", 13);
@@ -1202,6 +1225,35 @@
   $("reloadBtn").addEventListener("click", () => shownIds().forEach(reloadFrame));
   $("paneReloadL").addEventListener("click", () => reloadFrame(current));
   $("paneReloadR").addEventListener("click", () => reloadFrame(currentRight));
+  // 화면 안에서는 로그아웃 쿠키 삭제가 막히므로, 로그아웃 페이지를 팝업(직접 접속과 같은 조건)으로 열어
+  // 쿠키를 지운 뒤 닫고 화면 안 사이트를 새로고침한다. 로그아웃 완료는 팝업 주소를 못 읽어서 시간으로 기다린다
+  const LOGOUT_WAIT_MS = 3000;
+  function accountSite() {
+    const shown = [[ITEMS[current], "left"], ...(splitDir ? [[ITEMS[currentRight], "right"]] : [])];
+    const hit = shown.find(([s]) => s && s.logout && embeddable(s));
+    return hit ? { site: hit[0], pane: hit[1] } : null;
+  }
+  $("logoutBtn").addEventListener("click", () => {
+    const site = accountSite()?.site;
+    if (!site) return;
+    const w = window.open(site.logout, "hub-logout", "width=480,height=640");
+    if (!w) {
+      $("hintText").textContent = "브라우저가 로그아웃 창을 막았습니다. 주소창 오른쪽의 팝업 차단 아이콘을 눌러 이 사이트의 팝업을 허용한 뒤 다시 눌러 주세요.";
+      $("hint").dataset.pane = "";
+      $("hint").dataset.site = "";
+      $("hintNever").hidden = true;
+      $("hint").hidden = false;
+      return;
+    }
+    $("logoutBtn").disabled = true;
+    frames[site.id].dataset.loading = "1";
+    updateLoading();
+    setTimeout(() => {
+      w.close();
+      $("logoutBtn").disabled = false;
+      reloadFrame(site.id);
+    }, LOGOUT_WAIT_MS);
+  });
   // 나란히 보기면 두 사이트를 왼쪽부터 연다. 크롬은 한 번 누를 때 새 탭 하나만 허용하므로
   // 두 번째가 막히면(window.open이 null) 이 사이트의 팝업을 허용하는 방법을 알려 준다
   $("openBtn").addEventListener("click", e => {
