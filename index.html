@@ -607,10 +607,10 @@
         // 블라블라링크 로그아웃 응답의 쿠키 삭제에 SameSite가 없어(=Lax) 화면 안에서는 삭제가 막히고, 로그인 쿠키가 남아 원래 계정으로 다시 로그인된다
         logout: "https://www.blablalink.com/logout" },
     ]},
-    { name: "종합 도구", items: [
+    { name: "종합도구(덱 빌더, 통계, ...)", items: [
       { id: "letsdoro", name: "레츠도로", short: "레츠도로", icon: "home", desc: "솔레·유레 덱 구성 · 딜·버프 계산 · 육성 통계·가이드 · 협전 모집", url: "https://letsdoro.com/sitemap" },
     ]},
-    { name: "딜량계산기", items: [
+    { name: "덱 빌더", items: [
       { id: "dildoro", name: "딜도로", short: "딜도로", icon: "calculator", url: "https://dildoro.com/", embed: false },
     ]},
     { name: "솔레", items: [
@@ -622,12 +622,11 @@
       { id: "ur-sheet", name: "유레 결산 시트", short: "유레결산", icon: "table", url: "https://arca.live/b/nikketgv/161405505", sync: false, hint: ARCA_HINT },
       { id: "ur-autosync", name: "결산 시트 자동 입력 툴", short: "결산자동", icon: "zap", url: "https://ssissun.github.io/nikke-raid-autosync-spa/" },
     ]},
-    { name: "오버로드", items: [
+    { name: "육성", items: [
       { id: "module-opt", name: "모듈작 최적화 계산기", short: "모듈작", icon: "calculator", url: "https://syuen.love/" },
       { id: "module-opt-four", name: "모듈작 최적화 (4장비)", short: "4장비작", icon: "calculator", url: "https://nikke-optimizer.pages.dev/" },
-    ]},
-    { name: "소장품", items: [
       { id: "doll-opt", name: "소장품 최적화 계산기", short: "소장품", icon: "calculator", url: "https://syuen.love/doll/" },
+      { id: "growth", name: "니케 육성 정리", short: "육성정리", icon: "book", url: "https://arca.live/b/nikketgv/125575794", sync: false, hint: ARCA_HINT },
     ]},
     { name: "아레나", items: [
       { id: "deck-simple", name: "버충 계산기 (간단)", short: "버충간단", icon: "swords", url: "https://nikke-deck.com/" },
@@ -640,10 +639,6 @@
     { name: "스토리 보는 순서", items: [
       { id: "story-ssissun", name: "스토리 순서 (storyline)", short: "스토리A", icon: "listOrdered", url: "https://ssissun.github.io/nikke-storyline" },
       { id: "story-github", name: "스토리 순서 (nikke-story)", short: "스토리B", icon: "listOrdered", url: "https://nikke-story.github.io/" },
-      { id: "story-dc", name: "스토리 순서 (디시 뉴비 정리)", short: "스토리C", icon: "listOrdered", url: "https://gall.dcinside.com/mgallery/board/view/?id=gov&no=4053990", sync: false },
-    ]},
-    { name: "육성", items: [
-      { id: "growth", name: "니케 육성 정리", short: "육성정리", icon: "book", url: "https://arca.live/b/nikketgv/125575794", sync: false, hint: ARCA_HINT },
     ]},
     { name: "패키지", items: [
       { id: "package", name: "패키지 효율표 시트", short: "패키지", icon: "package",
